@@ -14,12 +14,6 @@ PM.growth = (function () {
   // blob    : чем штампуют кончики — ring (контур) или dome (капля с бликом)
   // haloB   : яркость пушистой опушки по краю колонии
   var ARCH = {
-    // ровный бархатный диск, гладкий край, почти без текстуры
-    velvet:   { latin: 'Penicillium chrysogenum', desc: 'velvety disc, powdery bloom',
-                wN: 1.6, wD: 0.15, wP: 2.2, wR: 0.30, wC: 0.7, wI: 2.4, wB: 1.6,
-                thr: 1.35, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 176, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
-                texture: 'smooth', haloB: 40 },
 
     // мишень: резкие концентрические зоны и широкая светлая опушка.
     // Главный мотив реальной заплесневелой чашки.
@@ -29,19 +23,7 @@ PM.growth = (function () {
                 dens: 112, noiseMul: 0.32, size: 1.4, ringAmp: 62, lobeMin: 3,  lobeMax: 5,
                 texture: 'zones', haloB: 88 },
 
-    // лопастная с радиальными бороздами
-    lobed:    { latin: 'Fusarium oxysporum', desc: 'lobed margin, radial furrows',
-                wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.30, wC: 0.8, wI: 2.2, wB: 1.5,
-                thr: 1.30, noiseScale: 13, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 128, noiseMul: 0.60, size: 1.3, ringAmp: 0,  lobeMin: 5,  lobeMax: 11,
-                texture: 'grooves', haloB: 34 },
 
-    // двудольная: две сросшиеся доли с бороздой посередине
-    bilobed:  { latin: 'Cladosporium herbarum', desc: 'two fused lobes with a cleft',
-                wN: 1.5, wD: 1.90, wP: 1.9, wR: 0.25, wC: 0.7, wI: 2.3, wB: 1.5,
-                thr: 1.34, noiseScale: 10, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 150, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 2,  lobeMax: 2,
-                texture: 'groove', haloB: 56 },
 
     // длинные тонкие иглы от центра
     starburst:{ latin: 'Streptomyces griseus', desc: 'long radial spokes',
@@ -71,12 +53,6 @@ PM.growth = (function () {
                 dens: 116, noiseMul: 0.40, size: 1.6, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'crackle', haloB: 22 },
 
-    // рыхлый зернистый ковёр с размытым краем
-    fuzz:     { latin: 'Mucor mucedo', desc: 'loose granular carpet',
-                wN: 1.2, wD: 0.30, wP: 0.9, wR: 0.15, wC: 0.9, wI: 1.9, wB: 1.4,
-                thr: 1.42, noiseScale: 6,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 92,  noiseMul: 0.95, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
-                texture: 'fuzz', haloB: 18 },
 
     // цепочки пузырей: кончики раздувают светлые кольца
     bubble:   { latin: 'Saccharomyces cerevisiae', desc: 'chains of budding rings',
@@ -94,13 +70,6 @@ PM.growth = (function () {
                 texture: 'smooth', haloB: 0, blob: 'dome',
                 blobR: [1.6, 3.2], blobGap: [3, 6] },
 
-    // рой гладких капель с бликом, разбросанных по агару
-    droplets: { latin: 'Klebsiella pneumoniae', desc: 'scattered glossy droplets',
-                wN: 1.2, wD: 0.20, wP: 0.7, wR: 0.15, wC: 1.2, wI: 2.5, wB: 1.8,
-                thr: 1.80, noiseScale: 8,  useFrontier: 0.12, useTips: 1, bubbles: 1,
-                dens: 92,  noiseMul: 1.00, size: 0.9, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
-                texture: 'smooth', haloB: 0, blob: 'dome',
-                blobR: [4.0, 13.0], blobGap: [26, 60] },
 
     // тонкое ветвящееся кружево
     hyphal:   { latin: 'Neurospora crassa', desc: 'fine branching lace',
@@ -125,12 +94,11 @@ PM.growth = (function () {
   };
 
   var WEIGHTS = [
-    ['target', 14], ['velvet', 10], ['lobed', 9], ['bilobed', 8],
-    ['starburst', 8], ['speckle', 8], ['fuzz', 7], ['crackle', 6],
-    ['bubble', 9], ['roe', 6], ['droplets', 6], ['hyphal', 6],
-    ['dendrite', 5], ['crater', 4], ['film', 4]
+    ['target', 14], ['starburst', 12], ['crackle', 11], ['speckle', 11],
+    ['bubble', 12], ['roe', 9], ['dendrite', 9], ['hyphal', 9],
+    ['crater', 7], ['film', 6]
   ];
-  var TOTAL_W = 110;
+  var TOTAL_W = 100;
 
   var OFF8 = null;   // смещения соседей, зависят от ширины поля
 

@@ -38,24 +38,7 @@ PM.scene = (function () {
       }
 
       // Радиальные борозды. Три поправки против «спиц»: закрутка по радиусу,
-      // дрожание угла шумом и переменная толщина.
-      case 'grooves': {
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 6 * sc) return l;
-        var wob = (PM.rng.fbm(rx / (6 * sc), ry / (6 * sc), c.seed + 311, 2) - 0.5) * 0.55;
-        var th = Math.atan2(dy, dx) + dist * c.swirl + wob;
-        var off = Math.abs(Math.sin(th * c.lobes)) * dist;
-        var wg = (1.0 + 1.1 * PM.rng.fbm(rx / (14 * sc), ry / (14 * sc), c.seed + 7, 1)) * sc;
-        return l - 46 * (1 - ss(0, wg, off));
-      }
 
-      // Борозда двудольной: изогнута шумом, к краям сходит на нет.
-      case 'groove': {
-        var pr = dx * Math.cos(c.dirAngle) + dy * Math.sin(c.dirAngle);
-        pr += (PM.rng.fbm(rx / (9 * sc), ry / (9 * sc), c.seed + 421, 2) - 0.5) * 7 * sc;
-        var w = 1.9 * sc;
-        return l - 58 * (1 - ss(0, w, Math.abs(pr)));
-      }
 
       // Крап спороносцев
       case 'speckle': {
@@ -153,58 +136,24 @@ PM.scene = (function () {
     }
   }
 
-  // Цифры 3x5 для нумерации посевов
-  // Цифры 3x5 для нумерации посевов
-  var DIGITS = [
-    ['111','101','101','101','111'], ['010','110','010','010','111'],
-    ['111','001','111','100','111'], ['111','001','111','001','111'],
-    ['101','101','111','001','001'], ['111','100','111','001','111'],
-    ['111','100','111','101','111'], ['111','001','010','010','010'],
-    ['111','101','111','101','111'], ['111','101','111','001','111']
-  ];
-
-  function digit(lum, W, H, d, x0, y0, k, v) {
-    var rows = DIGITS[d];
-    for (var r = 0; r < 5; r++) {
-      for (var c = 0; c < 3; c++) {
-        if (rows[r][c] !== '1') continue;
-        for (var a = 0; a < k; a++) {
-          for (var b = 0; b < k; b++) {
-            put(lum, W, H, x0 + c * k + b, y0 + r * k + a, v);
-          }
-        }
-      }
-    }
-  }
-
-  // Маркеры посевов до старта: крестик и номер. После запуска не рисуются —
-  // подписи нужны, пока расставляешь, и мешают, когда смотришь на рост.
+  // Маркеры посевов до старта: только крестик, ровно в точке клика.
+  // Номера подписываются обычным шрифтом поверх канваса (см. main.js) —
+  // растровые цифры в буфере выглядели грубо.
   function markers(lum, f, points) {
     var W = f.W, H = f.H;
     var sc = f.scale || 1;
-    var r = Math.round(2 * sc);
-    var k = Math.max(1, Math.round(sc));
+    var arm = Math.max(2, Math.round(2.5 * sc));   // полудлина луча крестика
 
     for (var p = 0; p < points.length; p++) {
       var x = points[p].x, y = points[p].y;
-      for (var d = -r; d <= r; d++) {
-        put(lum, W, H, x + d, y, d === 0 ? 250 : 190);
-        put(lum, W, H, x, y + d, d === 0 ? 250 : 190);
-      }
 
-      var num = String(p + 1);
-      var gx = x + r + 2 * k;
-      var gy = y - 2 * k;
-      for (var i = 0; i < num.length; i++) {
-        // тёмная подложка, чтобы цифра читалась на любом агаре
-        for (var by = -1; by <= 5 * k; by++) {
-          for (var bx = -1; bx <= 3 * k; bx++) {
-            put(lum, W, H, gx + bx, gy + by, 18);
-          }
-        }
-        digit(lum, W, H, +num[i], gx, gy, k, 245);
-        gx += 4 * k;
+      for (var d = -arm; d <= arm; d++) {
+        if (d === 0) continue;
+        put(lum, W, H, x + d, y, 236);
+        put(lum, W, H, x, y + d, 236);
       }
+      put(lum, W, H, x, y, 252);                   // ровно точка клика
+
     }
   }
 

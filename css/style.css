@@ -10,13 +10,12 @@ html, body {
   touch-action: manipulation;
 }
 
-/* пинцет вместо курсора: спору берут им, а не стрелкой */
+/* курсор рисуется в js/cursor.js — пиксельный пинцет с двумя состояниями */
 #stage {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
-  cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round'%3E%3Cpath d='M6 3 L11.4 14.5'/%3E%3Cpath d='M17 3 L12.6 14.5'/%3E%3Cpath d='M11.4 14.5 L12 22 L12.6 14.5'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M6 3 L11.4 14.5'/%3E%3Cpath d='M17 3 L12.6 14.5'/%3E%3Cpath d='M11.4 14.5 L12 22 L12.6 14.5'/%3E%3C/g%3E%3C/svg%3E") 12 22, crosshair;
 }
 body.running #stage { cursor: default; }
 
@@ -111,6 +110,15 @@ body.running #stage { cursor: default; }
 #strain-info b { color: #b3b3b3; font-weight: 400; }
 
 /* ---------- кнопка панели ---------- */
+
+#save {
+  position: fixed;
+  top: 12px;
+  right: 200px;          /* левее палитры штаммов */
+  z-index: 30;
+  height: 38px;
+  letter-spacing: .08em;
+}
 
 #menu {
   position: fixed;
@@ -260,6 +268,7 @@ button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
   #start { flex-basis: 100%; }
 
   #menu { width: 44px; height: 44px; }
+  #save { right: 12px; height: 44px; }
 
   .hint { display: none; }
 }

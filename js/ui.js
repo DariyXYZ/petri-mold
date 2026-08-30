@@ -3,6 +3,7 @@ var PM = PM || {};
 PM.ui = (function () {
   var api;
   var brush = '';          // '' = random strain
+  var holding = false;     // спора взята пинцетом и ещё не посажена
 
   function el(id) { return document.getElementById(id); }
 
@@ -36,7 +37,7 @@ PM.ui = (function () {
       var n = names[i];
       box.appendChild(makeTile(n, PM.growth.latin(n), PM.growth.desc(n)));
     }
-    select('');
+    select('', false);
   }
 
   function makeTile(name, latin, desc) {
@@ -64,8 +65,14 @@ PM.ui = (function () {
     return b;
   }
 
-  function select(name) {
+  function setCursor() {
+    PM.cursor.apply(el('stage'), holding);
+  }
+
+  function select(name, take) {
     brush = name;
+    if (take !== false) holding = true;   // взяли спору — пинцет смыкается
+    setCursor();
     var tiles = document.querySelectorAll('#strains .tile');
     for (var i = 0; i < tiles.length; i++) {
       tiles[i].classList.toggle('on', tiles[i].dataset.strain === name);
@@ -119,6 +126,7 @@ PM.ui = (function () {
     api = a;
 
     buildBrushes();
+    setCursor();
 
     var pal = el('pal');
     var PLAB = { grey8: '8 neutral', tint6: '6 tinted', grey5: '5 coarse' };
@@ -197,6 +205,8 @@ PM.ui = (function () {
   return {
     init: init,
     sync: function () { if (api) sync(); },
-    brush: function () { return brush || null; }
+    brush: function () { return brush || null; },
+    // спору посадили — пинцет разжимается до следующего выбора штамма
+    released: function () { holding = false; setCursor(); }
   };
 })();

@@ -79,6 +79,7 @@ PM.app = (function () {
     }
     points.push({ x: Math.round(bx), y: Math.round(by),
                   arch: PM.ui.brush() });
+    PM.ui.released();
     PM.ui.sync();
     draw();
   }
@@ -123,6 +124,24 @@ PM.app = (function () {
     PM.render.blit(lum, W, H, img);
     offCtx.putImageData(img, 0, 0);
     PM.render.present(ctx, off, W, H, dw, dh);
+    if (state === 'inoculate') labelSpores();
+  }
+
+  // Номера посевов рисуются поверх готового кадра обычным шрифтом: в пиксельном
+  // буфере цифры получались грубыми, а подпись здесь служебная, не часть картинки.
+  function labelSpores() {
+    if (!points.length) return;
+    var k = dw / W;
+    ctx.save();
+    ctx.font = '600 12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#e8e8e8';
+    for (var p = 0; p < points.length; p++) {
+      ctx.fillText(String(p + 1),
+                   Math.round(points[p].x * k) + 7,
+                   Math.round(points[p].y * k) + 4);
+    }
+    ctx.restore();
   }
 
   // ---------- управление ----------
