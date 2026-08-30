@@ -5,68 +5,117 @@ var PM = PM || {};
 PM.growth = (function () {
   var TAU = Math.PI * 2;
 
-  // Веса score-функции: S = wN*N + wD*D + wP*P + wR*R - wC*C - wI*I - wB*B + eta
-  // layer: solid — своя территория; veil — полупрозрачный слой поверх всего
-  // hollow: рисуется только кайма, тело остаётся прозрачным (кольцо-призрак)
+  // Веса score-функции: S = wN*N + wD*D + wP*P + wR*R + drift - wC*C - wI*I - wB*B + eta
+  //
+  // layer   : solid — своя территория; veil — полупрозрачный слой поверх всего
+  // hollow  : рисуется только кайма, тело прозрачное (кольцо-призрак)
+  // texture : чем заполнена внутренность — именно она отличает виды на глаз
+  //           smooth | zones | grooves | groove | speckle | crackle | fuzz
+  // blob    : чем штампуют кончики — ring (контур) или dome (капля с бликом)
+  // haloB   : яркость пушистой опушки по краю колонии
   var ARCH = {
-    // компактный бархатистый круг: держится за своих, край гладкий
+    // ровный бархатный диск, гладкий край, почти без текстуры
     velvet:   { wN: 1.6, wD: 0.15, wP: 2.2, wR: 0.30, wC: 0.7, wI: 2.4, wB: 1.6,
                 thr: 1.35, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 148, noiseMul: 0.35, size: 1.2, ringAmp: 34, lobeMin: 3,  lobeMax: 7 },
+                dens: 176, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
+                texture: 'smooth', haloB: 40 },
 
-    // цепочки пузырей: рост через кончики, которые раздувают кольца
-    bubble:   { wN: 1.3, wD: 0.20, wP: 0.9, wR: 0.20, wC: 1.1, wI: 2.6, wB: 1.8,
-                thr: 1.65, noiseScale: 6,  useFrontier: 0.25, useTips: 1, bubbles: 1,
-                dens: 96,  noiseMul: 1.00, size: 1.2, ringAmp: 18, lobeMin: 3,  lobeMax: 7 },
+    // мишень: резкие концентрические зоны и широкая светлая опушка.
+    // Главный мотив реальной заплесневелой чашки.
+    target:   { wN: 1.5, wD: 0.20, wP: 2.1, wR: 0.40, wC: 0.7, wI: 2.3, wB: 1.5,
+                thr: 1.32, noiseScale: 11, useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 112, noiseMul: 0.32, size: 1.4, ringAmp: 62, lobeMin: 3,  lobeMax: 5,
+                texture: 'zones', haloB: 88 },
 
-    // тонкое ветвящееся кружево, фронта почти нет
-    hyphal:   { wN: 1.1, wD: 0.10, wP: 0.4, wR: 0.10, wC: 1.6, wI: 2.2, wB: 1.4,
-                thr: 1.9,  noiseScale: 5,  useFrontier: 0.1,  useTips: 1, bubbles: 0,
-                dens: 168, noiseMul: 1.00, size: 1.4, ringAmp: 12, lobeMin: 3,  lobeMax: 7 },
-
-    // лопастная колония с радиальными секторами
-    lobed:    { wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.55, wC: 0.8, wI: 2.2, wB: 1.5,
+    // лопастная с радиальными бороздами
+    lobed:    { wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.30, wC: 0.8, wI: 2.2, wB: 1.5,
                 thr: 1.30, noiseScale: 13, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 142, noiseMul: 0.70, size: 1.3, ringAmp: 36, lobeMin: 4,  lobeMax: 9 },
+                dens: 128, noiseMul: 0.60, size: 1.3, ringAmp: 0,  lobeMin: 5,  lobeMax: 11,
+                texture: 'grooves', haloB: 34 },
 
-    // концентрические кольца спороношения — «луковица» с рефа
-    rings:    { wN: 1.5, wD: 0.20, wP: 2.0, wR: 1.10, wC: 0.7, wI: 2.3, wB: 1.5,
-                thr: 1.30, noiseScale: 11, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 128, noiseMul: 0.40, size: 1.5, ringAmp: 62, lobeMin: 3,  lobeMax: 6 },
+    // двудольная: две сросшиеся доли с бороздой посередине
+    bilobed:  { wN: 1.5, wD: 1.90, wP: 1.9, wR: 0.25, wC: 0.7, wI: 2.3, wB: 1.5,
+                thr: 1.34, noiseScale: 10, useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 150, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 2,  lobeMax: 2,
+                texture: 'groove', haloB: 56 },
 
-    // лучистая розетка: много тонких радиальных лучей, зубчатый край
-    rosette:  { wN: 1.5, wD: 2.60, wP: 0.6, wR: 0.35, wC: 0.9, wI: 2.2, wB: 1.5,
-                thr: 1.55, noiseScale: 7,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 158, noiseMul: 0.50, size: 1.3, ringAmp: 22, lobeMin: 12, lobeMax: 28 },
+    // длинные тонкие иглы от центра
+    starburst:{ wN: 1.5, wD: 3.20, wP: 0.45, wR: 0.20, wC: 0.9, wI: 2.2, wB: 1.5,
+                thr: 1.70, noiseScale: 7,  useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 196, noiseMul: 0.35, size: 1.4, ringAmp: 0,  lobeMin: 14, lobeMax: 30,
+                texture: 'smooth', haloB: 26 },
 
-    // дендрит: голодный режим, экранирование — ветвится и не заплывает
+    // голодный режим с экранированием: ветвится и не заплывает
     dendrite: { wN: 2.4, wD: 0.25, wP: 0.15, wR: 0.15, wC: 2.4, wI: 2.0, wB: 1.3,
                 thr: 1.95, noiseScale: 4,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 178, noiseMul: 1.40, size: 1.5, ringAmp: 10, lobeMin: 3,  lobeMax: 8 },
+                dens: 202, noiseMul: 1.40, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 8,
+                texture: 'smooth', haloB: 0 },
 
-    // полупрозрачная плёнка: быстрая, рыхлая, территорию не отбирает
-    film:     { wN: 0.8, wD: 0.25, wP: 1.3, wR: 0.15, wC: 0.2, wI: 0.6, wB: 1.2,
-                thr: 1.05, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 74,  noiseMul: 1.20, size: 1.4, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
-                layer: 'veil' },
+    // светлая масса с тёмным крапом спороносцев
+    speckle:  { wN: 1.5, wD: 0.30, wP: 1.7, wR: 0.20, wC: 0.8, wI: 2.2, wB: 1.5,
+                thr: 1.36, noiseScale: 10, useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 206, noiseMul: 0.45, size: 1.3, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
+                texture: 'speckle', haloB: 30 },
 
-    // диффузное облако: большое мягкое пятно поверх остальных
-    halo:     { wN: 0.7, wD: 0.40, wP: 1.5, wR: 0.45, wC: 0.2, wI: 0.5, wB: 1.1,
-                thr: 1.00, noiseScale: 12, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 62,  noiseMul: 0.90, size: 1.6, ringAmp: 34, lobeMin: 3,  lobeMax: 6,
-                layer: 'veil' },
+    // сплошное поле, разбитое сеткой трещин
+    crackle:  { wN: 1.5, wD: 0.25, wP: 2.0, wR: 0.20, wC: 0.7, wI: 2.1, wB: 1.4,
+                thr: 1.28, noiseScale: 14, useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 116, noiseMul: 0.40, size: 1.6, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
+                texture: 'crackle', haloB: 22 },
 
-    // кольцо-призрак: фронт ушёл, центр лизировался — видна только кайма
+    // рыхлый зернистый ковёр с размытым краем
+    fuzz:     { wN: 1.2, wD: 0.30, wP: 0.9, wR: 0.15, wC: 0.9, wI: 1.9, wB: 1.4,
+                thr: 1.42, noiseScale: 6,  useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 92,  noiseMul: 0.95, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
+                texture: 'fuzz', haloB: 18 },
+
+    // цепочки пузырей: кончики раздувают светлые кольца
+    bubble:   { wN: 1.3, wD: 0.20, wP: 0.9, wR: 0.20, wC: 1.1, wI: 2.6, wB: 1.8,
+                thr: 1.65, noiseScale: 6,  useFrontier: 0.25, useTips: 1, bubbles: 1,
+                dens: 96,  noiseMul: 1.00, size: 1.0, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
+                texture: 'smooth', haloB: 0, blob: 'ring',
+                blobR: [3.0, 9.0], blobGap: [16, 38] },
+
+    // икра: плотная гроздь одинаковых мелких капель
+    roe:      { wN: 1.4, wD: 0.20, wP: 1.2, wR: 0.20, wC: 1.0, wI: 2.4, wB: 1.7,
+                thr: 1.55, noiseScale: 6,  useFrontier: 0.3,  useTips: 1, bubbles: 1,
+                dens: 104, noiseMul: 0.80, size: 1.0, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
+                texture: 'smooth', haloB: 0, blob: 'dome',
+                blobR: [1.6, 3.2], blobGap: [3, 6] },
+
+    // рой гладких капель с бликом, разбросанных по агару
+    droplets: { wN: 1.2, wD: 0.20, wP: 0.7, wR: 0.15, wC: 1.2, wI: 2.5, wB: 1.8,
+                thr: 1.80, noiseScale: 8,  useFrontier: 0.12, useTips: 1, bubbles: 1,
+                dens: 92,  noiseMul: 1.00, size: 0.9, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
+                texture: 'smooth', haloB: 0, blob: 'dome',
+                blobR: [4.0, 13.0], blobGap: [26, 60] },
+
+    // тонкое ветвящееся кружево
+    hyphal:   { wN: 1.1, wD: 0.10, wP: 0.4, wR: 0.10, wC: 1.6, wI: 2.2, wB: 1.4,
+                thr: 1.9,  noiseScale: 5,  useFrontier: 0.1,  useTips: 1, bubbles: 0,
+                dens: 168, noiseMul: 1.00, size: 1.4, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
+                texture: 'smooth', haloB: 0 },
+
+    // кольцо-призрак: фронт ушёл, центр лизировался
     crater:   { wN: 1.8, wD: 0.30, wP: 1.8, wR: 0.25, wC: 0.6, wI: 1.8, wB: 1.5,
                 thr: 1.15, noiseScale: 12, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 130, noiseMul: 0.45, size: 1.2, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
-                hollow: true }
+                texture: 'smooth', haloB: 0, hollow: true },
+
+    // полупрозрачная плёнка поверх остальных
+    film:     { wN: 0.8, wD: 0.25, wP: 1.3, wR: 0.15, wC: 0.2, wI: 0.6, wB: 1.2,
+                thr: 1.05, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
+                dens: 74,  noiseMul: 1.20, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
+                texture: 'smooth', haloB: 0, layer: 'veil' }
   };
 
-  var WEIGHTS = [['velvet', 16], ['bubble', 18], ['hyphal', 12], ['lobed', 12],
-                 ['rings', 12], ['rosette', 10], ['dendrite', 8],
-                 ['film', 4], ['halo', 5], ['crater', 5]];
-  var TOTAL_W = 102;
+  var WEIGHTS = [
+    ['target', 14], ['velvet', 10], ['lobed', 9], ['bilobed', 8],
+    ['starburst', 8], ['speckle', 8], ['fuzz', 7], ['crackle', 6],
+    ['bubble', 9], ['roe', 6], ['droplets', 6], ['hyphal', 6],
+    ['dendrite', 5], ['crater', 4], ['film', 4]
+  ];
+  var TOTAL_W = 110;
 
   var OFF8 = null;   // смещения соседей, зависят от ширины поля
 
@@ -98,7 +147,7 @@ PM.growth = (function () {
       branchChance: lerp(0.004, 0.030, rnd()),
       persistence: lerp(0.20, 0.92, rnd()),
       lobeNoise: lerp(0.15, 0.85, rnd()),
-      ringPeriod: (name === 'rings' ? lerp(5, 13, rnd()) : lerp(8, 26, rnd())) * sc,
+      ringPeriod: (name === 'target' ? lerp(5, 12, rnd()) : lerp(8, 26, rnd())) * sc,
       haloWidth: lerp(1, 4, rnd()),
       satelliteChance: lerp(0, 0.018, rnd()),
       inhibition: lerp(0.2, 1.0, rnd()),
@@ -106,14 +155,22 @@ PM.growth = (function () {
       collisionMode: rnd() < 0.08 ? 'overgrow' : (rnd() < 0.5 ? 'stop' : 'avoid'),
       lobes: a.lobeMin + ((rnd() * (a.lobeMax - a.lobeMin + 1)) | 0),
       dirAngle: rnd() * TAU,
-      bubbleSpacing: Math.round((16 + rnd() * 22) * sc),
-      bubbleR: lerp(3.0, 9.0, rnd()) * sc,
+      bubbleSpacing: Math.round(lerp(a.blobGap ? a.blobGap[0] : 16,
+                                     a.blobGap ? a.blobGap[1] : 38, rnd()) * sc),
+      bubbleR: lerp(a.blobR ? a.blobR[0] : 3, a.blobR ? a.blobR[1] : 9, rnd()) * sc,
       // не жёсткий потолок, а «жадность»: насколько охотно колония берёт площадь
       greed: lerp(0.55, 1.0, Math.pow(rnd(), 0.7)) * a.size,
-      tone: lerp(0.74, 1.24, rnd()),
+      maxCells: Math.round(lerp(260, 2100, Math.pow(rnd(), 1.6))
+                           * a.size * sc * sc * (a.layer === 'veil' ? 0.6 : 1)),
+      // сколько поколений дочерних очагов ещё может дать этот штамм
+      brood: a.layer === 'veil' ? 0 : 1,
+      sporeChance: lerp(0.004, 0.030, rnd()),
+      tone: lerp(0.62, 1.34, rnd()),
       sc: sc,
       noiseScale: a.noiseScale * sc,
       tipLife: Math.round((110 + rnd() * 200) * sc),
+      haloAge: Math.round(70 + rnd() * 220),
+      lastGrow: 0,
       // споры прорастают не разом — часть отстаёт и остаётся мелкой
       delay: Math.round(Math.pow(rnd(), 1.7) * 1400),
       // анизотропия: одна сторона колонии растёт охотнее — форма уходит от круга
@@ -217,7 +274,7 @@ PM.growth = (function () {
 
       var p = 1 / (1 + Math.exp(-(S - a.thr) * 4.5));
       if (rnd() < p) {
-        var dens = (a.dens * c.tone + (rnd() - 0.5) * 40) | 0;
+        var dens = (a.dens * c.tone + (rnd() - 0.5) * 26) | 0;
         if (dens < 30) dens = 30;
         if (dens > 250) dens = 250;
         occupy(c, f, j, dens);
@@ -241,6 +298,7 @@ PM.growth = (function () {
   // Пузырь: яркий контур + чуть более тёмное нутро, как на референсе
   function stampBubble(c, f, cx, cy, r) {
     var W = f.W, H = f.H, ri = Math.round(r);
+    var dome = c.a.blob === 'dome';
     if (ri < 1) return;
     var r2 = r * r, rin2 = (r - 1.2) * (r - 1.2);
     for (var y = cy - ri - 1; y <= cy + ri + 1; y++) {
@@ -252,13 +310,21 @@ PM.growth = (function () {
         var i = y * W + x;
         if (!f.mask[i]) continue;
         var isRing = d2 >= rin2;
+        var val;
+        if (dome) {
+          // капля: яркий блик в середине, спад к тёмному ободку
+          var t = Math.sqrt(d2) / r;
+          val = isRing ? 66 : 238 - 150 * t * t;
+        } else {
+          val = isRing ? 232 : 78;
+        }
         if (f.owner[i] && f.owner[i] !== c.id) {
-          // поверх чужой массы рисуем только светлый контур — это и даёт наслоения
-          if (isRing && f.film[i] < 190) f.film[i] = 190;
+          // поверх чужой массы кладём только светлый контур — это и даёт наслоения
+          if (isRing && !dome && f.film[i] < 190) f.film[i] = 190;
           continue;
         }
-        if (!f.owner[i]) occupy(c, f, i, isRing ? 232 : 78);
-        else if (isRing) f.density[i] = 232;
+        if (!f.owner[i]) occupy(c, f, i, val);
+        else if (val > f.density[i]) f.density[i] = val;
       }
     }
   }
@@ -355,6 +421,11 @@ PM.growth = (function () {
       var c = colonies[k];
       if (!c.alive) continue;
       if (f.tick < c.delay) continue;          // спора ещё не проросла
+      if (c.cells >= c.maxCells) {
+        c.alive = false; c.tips.length = 0;
+        sporulate(c, f, rnd, colonies);
+        continue;
+      }
       var before = c.cells;
 
       var budget = 0;
@@ -381,7 +452,7 @@ PM.growth = (function () {
         // колония мертва, когда некуда расти: фронт пуст и кончиков нет
         if (!c.frontier.length && !c.tips.length) c.alive = false;
         else if (c.stalled > 600) c.alive = false;
-      } else c.stalled = 0;
+      } else { c.stalled = 0; c.lastGrow = f.tick; }
     }
 
     if (f.tick % 3 === 0) {
@@ -436,6 +507,50 @@ PM.growth = (function () {
   function townHash(a, b) {
     var h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263);
     return (h ^ (h >>> 13)) >>> 0;
+  }
+
+  var MAX_COLONIES = 30;
+
+  function sporulate(c, f, rnd, colonies) {
+    if (c.brood <= 0 || colonies.length >= MAX_COLONIES) return;
+    c.brood = 0;                       // сама больше не сеет, потомки — могут
+
+    var kids = 1 + ((rnd() * 3) | 0);
+    for (var k = 0; k < kids; k++) {
+      if (colonies.length >= MAX_COLONIES) return;
+      if (rnd() > 0.85) continue;
+
+      // дочерний очаг садится на границе материнской территории
+      var x = 0, y = 0, j = -1;
+      var base = Math.sqrt(c.cells / Math.PI);
+      for (var t = 0; t < 14; t++) {
+        var ang = rnd() * TAU;
+        var rad = base * (0.9 + rnd() * 1.4);
+        x = Math.round(c.x + Math.cos(ang) * rad);
+        y = Math.round(c.y + Math.sin(ang) * rad);
+        if (x < 2 || y < 2 || x >= f.W - 2 || y >= f.H - 2) continue;
+        var q = y * f.W + x;
+        if (f.mask[q] && !f.owner[q]) { j = q; break; }
+      }
+      if (j < 0) continue;
+
+      // тот же штамм, но мельче и позже — изредка мутирует в соседний вид
+      var kid = makeColony(c.nextId ? c.nextId() : (colonies.length + 1), x, y,
+                           rnd, f.seedBase | 0,
+                           rnd() < 0.32 ? c.archetype : null, c.sc);
+      kid.id = nextFreeId(colonies);
+      kid.maxCells = Math.round(c.maxCells * (0.5 + rnd() * 0.75));
+      kid.delay = f.tick + Math.round(rnd() * 260);
+      kid.brood = 1;
+      inoculate(kid, f, rnd);
+      colonies.push(kid);
+    }
+  }
+
+  function nextFreeId(colonies) {
+    var m = 0;
+    for (var i = 0; i < colonies.length; i++) if (colonies[i].id > m) m = colonies[i].id;
+    return m + 1;
   }
 
   function anyAlive(colonies) {

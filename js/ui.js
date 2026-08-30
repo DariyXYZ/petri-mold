@@ -71,10 +71,12 @@ PM.ui = (function () {
 
     // принудительный архетип (по умолчанию — случайный)
     var arch = el('arch');
-    var ALAB = { velvet: 'бархат', bubble: 'пузыри', hyphal: 'гифы',
-                 lobed: 'лопасти', rings: 'кольца', rosette: 'розетка',
-                 dendrite: 'дендрит', film: 'плёнка', halo: 'облако',
-                 crater: 'призрак' };
+    var ALAB = {
+      target: 'мишень', velvet: 'бархат', lobed: 'лопасти', bilobed: 'двудольная',
+      starburst: 'иглы', speckle: 'крап', fuzz: 'пух', crackle: 'кракелюр',
+      bubble: 'пузыри', roe: 'икра', droplets: 'капли', hyphal: 'гифы',
+      dendrite: 'дендрит', crater: 'призрак', film: 'плёнка'
+    };
     PM.growth.names().forEach(function (n) {
       var o = document.createElement('option');
       o.value = n; o.textContent = ALAB[n] || n;
@@ -119,13 +121,25 @@ PM.ui = (function () {
       link.click();
     });
 
+    // панель как выдвижной ящик: кнопка сверху, затемнение, Esc
+    var panel = el('panel'), backdrop = el('backdrop');
+    function setPanel(open) {
+      panel.classList.toggle('open', open);
+      backdrop.classList.toggle('on', open);
+    }
+    el('menu').addEventListener('click', function () {
+      setPanel(!panel.classList.contains('open'));
+    });
+    backdrop.addEventListener('click', function () { setPanel(false); });
+
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setPanel(false);
       var t = e.target.tagName;
       if (t === 'INPUT' || t === 'SELECT') return;
       if (e.code === 'Space') { e.preventDefault(); api.start(); }
       if (e.key === 'r' || e.key === 'R') api.reseed();
       if (e.key === 'a' || e.key === 'A') api.sameSeed();
-      if (e.key === 'd' || e.key === 'D') el('panel').classList.toggle('hidden');
+      if (e.key === 'd' || e.key === 'D') setPanel(!panel.classList.contains('open'));
       if (e.key === 's' || e.key === 'S') el('save').click();
     });
   }

@@ -6,6 +6,8 @@ html, body {
   font: 11px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   height: 100%;
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 #wrap {
@@ -15,6 +17,7 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 12px;
+  padding: 56px 8px 8px;
 }
 
 #stage {
@@ -22,31 +25,67 @@ html, body {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   cursor: crosshair;
+  touch-action: none;          /* клик по чашке не должен скроллить страницу */
 }
 
-#bar { display: flex; gap: 6px; }
+#bar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 
 #status {
   color: #4d4d4d;
   letter-spacing: .06em;
-  height: 1.5em;
+  min-height: 1.5em;
+  text-align: center;
+  padding: 0 12px;
 }
+
+/* ---------- кнопка панели ---------- */
+
+#menu {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 30;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0;
+}
+
+/* ---------- панель ---------- */
+
+#backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  background: rgba(0, 0, 0, .72);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+#backdrop.on { opacity: 1; pointer-events: auto; }
 
 #panel {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  width: 218px;
-  max-height: calc(100% - 32px);
+  top: 0;
+  left: 0;
+  z-index: 20;
+  width: 244px;
+  height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: #0a0a0a;
-  border: 1px solid #1a1a1a;
-  padding: 12px;
+  border-right: 1px solid #1a1a1a;
+  padding: 60px 14px 24px;
   display: grid;
   gap: 7px;
+  align-content: start;
+  transform: translateX(-102%);
+  transition: transform .2s ease;
 }
-
-#panel.hidden { display: none; }
+#panel.open { transform: none; }
 
 #panel h2 {
   font-size: 10px;
@@ -54,7 +93,7 @@ html, body {
   text-transform: uppercase;
   color: #3d3d3d;
   font-weight: 400;
-  margin: 4px 0 1px;
+  margin: 6px 0 1px;
 }
 #panel h2:first-child { margin-top: 0; }
 
@@ -78,33 +117,62 @@ input[type=range] {
 }
 input[type=range]::-webkit-slider-thumb {
   appearance: none;
-  width: 9px; height: 9px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
   background: #b3b3b3;
   cursor: pointer;
 }
+input[type=range]::-moz-range-thumb {
+  width: 14px; height: 14px;
+  border: 0; border-radius: 50%;
+  background: #b3b3b3;
+}
 
-.chk { width: auto; justify-self: end; accent-color: #8c8c8c; }
+.chk { width: 18px; height: 18px; justify-self: end; accent-color: #8c8c8c; }
 
 select, button {
   background: #141414;
   color: #b3b3b3;
   border: 1px solid #262626;
   font: inherit;
-  padding: 4px 9px;
+  padding: 7px 11px;
   cursor: pointer;
+  border-radius: 2px;
 }
 select:hover, button:hover:not(:disabled) { border-color: #4d4d4d; color: #e6e6e6; }
-
 button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
 
 #start { letter-spacing: .1em; }
 
 .hint {
   position: fixed;
-  bottom: 12px;
+  bottom: 10px;
   left: 0; right: 0;
   text-align: center;
   color: #2b2b2b;
   letter-spacing: .08em;
   pointer-events: none;
+}
+
+/* ---------- телефон ---------- */
+
+@media (max-width: 720px), (pointer: coarse) {
+  body { font-size: 12px; }
+
+  #wrap { padding: 54px 6px 6px; gap: 10px; }
+
+  #panel { width: min(300px, 86vw); }
+
+  #bar { gap: 8px; width: 100%; }
+  #bar button { flex: 1 1 auto; min-height: 44px; padding: 8px 10px; }
+  #start { flex-basis: 100%; }
+
+  #menu { width: 44px; height: 44px; }
+
+  .hint { display: none; }
+}
+
+@media (max-height: 560px) {
+  #wrap { padding-top: 50px; gap: 6px; }
+  #status { display: none; }
 }

@@ -27,13 +27,22 @@ PM.app = (function () {
   }
 
   function fitDisplay() {
-    var availW = window.innerWidth - 48;
-    var availH = window.innerHeight - 100;
-    var scale = Math.max(1, Math.floor(Math.min(availW / W, availH / H)));
+    var narrow = window.innerWidth < 720;
+    var availW = window.innerWidth - (narrow ? 14 : 48);
+    var availH = window.innerHeight - (narrow ? 168 : 120);
+    var fit = Math.min(availW / W, availH / H);
+    var scale = Math.max(1, Math.floor(fit));
+
+    // Внутренний буфер — всегда целое кратное, пиксель остаётся квадратным.
     dw = W * scale; dh = H * scale;
     canvas.width = dw; canvas.height = dh;
-    canvas.style.width = dw + 'px';
-    canvas.style.height = dh + 'px';
+
+    // На узком экране добираем остаток дробным CSS-масштабом: иначе на телефоне
+    // чашка сидит в 380 px и рядом остаются поля. Коэффициент близок к целому,
+    // неравномерность пикселей на плотном экране не читается.
+    var css = fit < 2 ? fit : scale;
+    canvas.style.width = Math.floor(W * css) + 'px';
+    canvas.style.height = Math.floor(H * css) + 'px';
   }
 
   // Фон рисуем один раз и держим копию — агар и обод не меняются
@@ -45,6 +54,7 @@ PM.app = (function () {
   function newCulture(keepPoints) {
     rnd = PM.rng.mulberry32(seed);
     fields = PM.fields.create(W, H, seed, PM.dish.GEO);
+    fields.seedBase = seed;
     colonies = [];
     nextId = 1;
     if (!keepPoints) points = [];

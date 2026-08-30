@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<button id="menu" aria-label="Настройки" title="Настройки (D)">≡</button>
+<div id="backdrop"></div>
+
 <div id="wrap">
   <canvas id="stage"></canvas>
   <div id="bar">
@@ -19,7 +22,7 @@
   <div id="status"></div>
 </div>
 
-<div id="panel">
+<div id="panel" role="dialog" aria-label="Настройки">
   <h2>лаборатория</h2>
 
   <div class="row"><label for="arch">тип споры</label>
