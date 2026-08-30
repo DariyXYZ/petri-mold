@@ -10,6 +10,16 @@ html, body {
   touch-action: manipulation;
 }
 
+/* пинцет вместо курсора: спору берут им, а не стрелкой */
+#stage {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round'%3E%3Cpath d='M6 3 L11.4 14.5'/%3E%3Cpath d='M17 3 L12.6 14.5'/%3E%3Cpath d='M11.4 14.5 L12 22 L12.6 14.5'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M6 3 L11.4 14.5'/%3E%3Cpath d='M17 3 L12.6 14.5'/%3E%3Cpath d='M11.4 14.5 L12 22 L12.6 14.5'/%3E%3C/g%3E%3C/svg%3E") 12 22, crosshair;
+}
+body.running #stage { cursor: default; }
+
 #wrap {
   height: 100%;
   display: flex;
@@ -17,15 +27,7 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 56px 8px 8px;
-}
-
-#stage {
-  display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  cursor: crosshair;
-  touch-action: none;          /* клик по чашке не должен скроллить страницу */
+  padding: 56px 200px 8px 8px;
 }
 
 #bar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
@@ -37,6 +39,76 @@ html, body {
   text-align: center;
   padding: 0 12px;
 }
+
+/* ---------- палитра штаммов ---------- */
+
+#strains {
+  position: fixed;
+  top: 0; right: 0;
+  z-index: 16;
+  width: 188px;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #070707;
+  border-left: 1px solid #191919;
+  padding: 14px 12px 20px;
+}
+
+#brushes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 3px 2px 4px;
+  background: #101010;
+  border: 1px solid #1e1e1e;
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.tile canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+}
+.tile .anymark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  font-size: 20px;
+  color: #4d4d4d;
+}
+.tile .cap {
+  font-size: 9px;
+  line-height: 1.2;
+  color: #5a5a5a;
+  text-align: center;
+  word-break: break-all;
+}
+.tile:hover { border-color: #3d3d3d; }
+.tile:hover .cap { color: #8c8c8c; }
+.tile.on { border-color: #b3b3b3; background: #161616; }
+.tile.on .cap { color: #e6e6e6; }
+
+#strain-info {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #191919;
+  color: #5a5a5a;
+  font-size: 10px;
+  line-height: 1.45;
+  font-style: italic;
+}
+#strain-info b { color: #b3b3b3; font-weight: 400; }
 
 /* ---------- кнопка панели ---------- */
 
@@ -87,15 +159,16 @@ html, body {
 }
 #panel.open { transform: none; }
 
-#panel h2 {
+h2 {
   font-size: 10px;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: #3d3d3d;
   font-weight: 400;
-  margin: 6px 0 1px;
+  margin: 6px 0 5px;
 }
 #panel h2:first-child { margin-top: 0; }
+#strains h2 { margin: 0 0 8px; }
 
 .row {
   display: grid;
@@ -147,7 +220,7 @@ button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
 .hint {
   position: fixed;
   bottom: 10px;
-  left: 0; right: 0;
+  left: 0; right: 190px;
   text-align: center;
   color: #2b2b2b;
   letter-spacing: .08em;
@@ -156,10 +229,29 @@ button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
 
 /* ---------- телефон ---------- */
 
-@media (max-width: 720px), (pointer: coarse) {
+@media (max-width: 760px), (pointer: coarse) {
   body { font-size: 12px; }
 
-  #wrap { padding: 54px 6px 6px; gap: 10px; }
+  #wrap { padding: 52px 6px 128px; gap: 10px; }
+
+  /* палитра уезжает вниз и листается горизонтально */
+  #strains {
+    top: auto; bottom: 0; right: 0; left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 122px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-left: 0;
+    border-top: 1px solid #191919;
+    padding: 8px 10px;
+  }
+  #strains h2, #strain-info { display: none; }
+  #brushes {
+    display: flex;
+    gap: 6px;
+  }
+  .tile { flex: 0 0 74px; }
 
   #panel { width: min(300px, 86vw); }
 
@@ -172,7 +264,8 @@ button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
   .hint { display: none; }
 }
 
-@media (max-height: 560px) {
-  #wrap { padding-top: 50px; gap: 6px; }
+@media (max-height: 620px) and (pointer: coarse) {
+  #strains { max-height: 96px; }
+  #wrap { padding-bottom: 102px; }
   #status { display: none; }
 }

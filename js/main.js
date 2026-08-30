@@ -29,9 +29,10 @@ PM.app = (function () {
   }
 
   function fitDisplay() {
-    var narrow = window.innerWidth < 720;
-    var availW = window.innerWidth - (narrow ? 14 : 48);
-    var availH = window.innerHeight - (narrow ? 168 : 120);
+    var narrow = window.innerWidth < 760;
+    // справа стоит палитра штаммов, на телефоне она уезжает вниз
+    var availW = window.innerWidth - (narrow ? 14 : 250);
+    var availH = window.innerHeight - (narrow ? 290 : 130);
     var fit = Math.min(availW / W, availH / H);
     var scale = Math.max(1, Math.floor(fit));
 
@@ -76,7 +77,8 @@ PM.app = (function () {
       var d = Math.hypot(points[p].x - bx, points[p].y - by);
       if (d < 4) { points.splice(p, 1); PM.ui.sync(); draw(); return; }
     }
-    points.push({ x: Math.round(bx), y: Math.round(by) });
+    points.push({ x: Math.round(bx), y: Math.round(by),
+                  arch: PM.ui.brush() });
     PM.ui.sync();
     draw();
   }
@@ -85,7 +87,7 @@ PM.app = (function () {
     if (state !== 'inoculate' || !points.length) return;
     for (var p = 0; p < points.length; p++) {
       var c = PM.growth.makeColony(nextId++, points[p].x, points[p].y, rnd, seed,
-                                   PM.ui.forcedArchetype(), W / 192);
+                                   points[p].arch, W / 192);
       PM.growth.inoculate(c, fields, rnd);
       colonies.push(c);
     }

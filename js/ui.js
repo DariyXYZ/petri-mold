@@ -1,7 +1,8 @@
 var PM = PM || {};
 
 PM.ui = (function () {
-  var api, forced = '';
+  var api;
+  var brush = '';          // '' = random strain
 
   function el(id) { return document.getElementById(id); }
 
@@ -22,48 +23,105 @@ PM.ui = (function () {
     el('amp-val').textContent = Math.round(PM.render.getAmp());
   }
 
-  // Статусная строка под чашкой
+  // ---------- палитра штаммов ----------
+
+  function buildBrushes() {
+    var box = el('brushes');
+    var names = PM.growth.names();
+
+    // случайный штамм — первой кнопкой
+    box.appendChild(makeTile('', 'Random strain', 'any of the fifteen'));
+
+    for (var i = 0; i < names.length; i++) {
+      var n = names[i];
+      box.appendChild(makeTile(n, PM.growth.latin(n), PM.growth.desc(n)));
+    }
+    select('');
+  }
+
+  function makeTile(name, latin, desc) {
+    var b = document.createElement('button');
+    b.className = 'tile';
+    b.dataset.strain = name;
+    b.title = latin + ' — ' + desc;
+
+    if (name) {
+      b.appendChild(PM.preview.build(name));
+    } else {
+      var q = document.createElement('span');
+      q.className = 'anymark';
+      q.textContent = '?';
+      b.appendChild(q);
+    }
+
+    var cap = document.createElement('span');
+    cap.className = 'cap';
+    // в подписи видовой эпитет: род длинный и часто повторяется
+    cap.textContent = name ? latin.split(' ')[1] : 'random';
+    b.appendChild(cap);
+
+    b.addEventListener('click', function () { select(name); });
+    return b;
+  }
+
+  function select(name) {
+    brush = name;
+    var tiles = document.querySelectorAll('#strains .tile');
+    for (var i = 0; i < tiles.length; i++) {
+      tiles[i].classList.toggle('on', tiles[i].dataset.strain === name);
+    }
+    el('strain-info').innerHTML = name
+      ? '<b>' + PM.growth.latin(name) + '</b><br>' + PM.growth.desc(name)
+      : '<em>Random strain — a different species each time.</em>';
+  }
+
+  // ---------- статус ----------
+
   function sync() {
     var st = api.getState();
     var pts = api.getPoints().length;
-    var LABEL = {
-      inoculate: 'поставь споры кликами внутри чашки · ' + pts + '/' + api.MAX_SPORES,
-      growing: 'растёт',
-      mature: 'созревает',
-      paused: 'пауза',
-      done: 'готово'
-    };
-    var line = LABEL[st] || st;
-    if (st !== 'inoculate') {
-      var cs = api.getColonies().map(function (c) { return c.archetype; });
+    var line;
+
+    if (st === 'inoculate') {
+      line = 'click inside the dish to place spores · ' + pts + '/' + api.MAX_SPORES;
+    } else {
+      var LABEL = { growing: 'growing', mature: 'maturing',
+                    paused: 'paused', done: 'done' };
       var count = {};
-      cs.forEach(function (a) { count[a] = (count[a] || 0) + 1; });
-      line += ' · ' + Object.keys(count).map(function (k) {
-        return k + (count[k] > 1 ? '×' + count[k] : '');
-      }).join(' ');
-      line += ' · tick ' + api.getTick();
+      api.getColonies().forEach(function (c) {
+        count[c.archetype] = (count[c.archetype] || 0) + 1;
+      });
+      var species = Object.keys(count).map(function (k) {
+        return PM.growth.latin(k).split(' ')[1] + (count[k] > 1 ? '×' + count[k] : '');
+      }).join(' · ');
+      line = (LABEL[st] || st) + ' · ' + species + ' · t' + api.getTick();
     }
     el('status').textContent = line;
 
     var s = el('start');
     s.disabled = !(st === 'inoculate' && pts > 0);
-    s.textContent = st === 'inoculate' ? 'ЗАПУСТИТЬ'
-                  : (st === 'done' ? 'ГОТОВО' : 'РАСТЁТ…');
+    s.textContent = st === 'inoculate' ? 'INOCULATE'
+                  : (st === 'done' ? 'DONE' : 'GROWING…');
 
     var p = el('pause');
     p.disabled = !(st === 'growing' || st === 'mature' || st === 'paused');
-    p.textContent = st === 'paused' ? 'ПРОДОЛЖИТЬ' : 'ПАУЗА';
+    p.textContent = st === 'paused' ? 'RESUME' : 'PAUSE';
 
     var e = el('exp-val');
     if (e) e.textContent = api.exportSize();
+
+    document.body.classList.toggle('running', st !== 'inoculate');
   }
+
+  // ---------- инициализация ----------
 
   function init(a) {
     api = a;
 
-    // палитра
+    buildBrushes();
+
     var pal = el('pal');
-    var PLAB = { grey8: '8 нейтр.', tint6: '6 тониров.', grey5: '5 грубо' };
+    var PLAB = { grey8: '8 neutral', tint6: '6 tinted', grey5: '5 coarse' };
     PM.palette.names().forEach(function (n) {
       var o = document.createElement('option');
       o.value = n; o.textContent = PLAB[n] || n;
@@ -77,23 +135,6 @@ PM.ui = (function () {
       api.redraw();
     });
 
-    // принудительный архетип (по умолчанию — случайный)
-    var arch = el('arch');
-    var ALAB = {
-      target: 'мишень', velvet: 'бархат', lobed: 'лопасти', bilobed: 'двудольная',
-      starburst: 'иглы', speckle: 'крап', fuzz: 'пух', crackle: 'кракелюр',
-      bubble: 'пузыри', roe: 'икра', droplets: 'капли', hyphal: 'гифы',
-      dendrite: 'дендрит', crater: 'призрак', film: 'плёнка'
-    };
-    PM.growth.names().forEach(function (n) {
-      var o = document.createElement('option');
-      o.value = n; o.textContent = ALAB[n] || n;
-      arch.appendChild(o);
-    });
-    arch.value = '';
-    arch.addEventListener('change', function () { forced = arch.value; });
-
-    // дизеринг
     var dith = el('dither');
     dith.checked = PM.render.getDither();
     dith.addEventListener('change', function () {
@@ -101,18 +142,14 @@ PM.ui = (function () {
       api.redraw();
     });
     bindRange('amp', PM.render.getAmp, PM.render.setAmp);
-
     bindRange('speed', api.getSpeed, api.setSpeed, function () {});
 
-    // параметры чашки — требуют перепечь фон
     var G = PM.dish.GEO;
-    var bgKeys = [
-      ['agar-c', 'agarCenter'], ['agar-f', 'agarFalloff'],
-      ['noise', 'agarNoiseAmp'], ['nscale', 'agarNoiseScale'],
-      ['grid', 'gridBoost'], ['rim-b', 'rimBase'], ['rim-s', 'rimSwing'],
-      ['rim-k', 'rimBreaks'], ['glare', 'glareCount']
-    ];
-    bgKeys.forEach(function (p) {
+    [['agar-c', 'agarCenter'], ['agar-f', 'agarFalloff'],
+     ['noise', 'agarNoiseAmp'], ['nscale', 'agarNoiseScale'],
+     ['grid', 'gridBoost'], ['rim-b', 'rimBase'], ['rim-s', 'rimSwing'],
+     ['rim-k', 'rimBreaks'], ['glare', 'glareCount']
+    ].forEach(function (p) {
       bindRange(p[0],
         function () { return G[p[1]]; },
         function (v) { G[p[1]] = v; },
@@ -120,9 +157,9 @@ PM.ui = (function () {
     });
 
     el('start').addEventListener('click', api.start);
+    el('pause').addEventListener('click', api.togglePause);
     el('reseed').addEventListener('click', function () { api.reseed(); });
     el('again').addEventListener('click', api.sameSeed);
-    el('pause').addEventListener('click', api.togglePause);
     el('save').addEventListener('click', api.exportPNG);
 
     bindRange('exp', api.getExportScale, function (v) {
@@ -130,7 +167,7 @@ PM.ui = (function () {
       el('exp-val').textContent = api.exportSize();
     }, function () {});
 
-    // панель как выдвижной ящик: кнопка сверху, затемнение, Esc
+    // панель как выдвижной ящик
     var panel = el('panel'), backdrop = el('backdrop');
     function setPanel(open) {
       panel.classList.toggle('open', open);
@@ -144,7 +181,7 @@ PM.ui = (function () {
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') setPanel(false);
       var t = e.target.tagName;
-      if (t === 'INPUT' || t === 'SELECT') return;
+      if (t === 'INPUT' || t === 'SELECT' || t === 'BUTTON') return;
       if (e.code === 'Space') {
         e.preventDefault();
         if (api.getState() === 'inoculate') api.start(); else api.togglePause();
@@ -153,13 +190,13 @@ PM.ui = (function () {
       if (e.key === 'r' || e.key === 'R') api.reseed();
       if (e.key === 'a' || e.key === 'A') api.sameSeed();
       if (e.key === 'd' || e.key === 'D') setPanel(!panel.classList.contains('open'));
-      if (e.key === 's' || e.key === 'S') el('save').click();
+      if (e.key === 's' || e.key === 'S') api.exportPNG();
     });
   }
 
   return {
     init: init,
     sync: function () { if (api) sync(); },
-    forcedArchetype: function () { return forced || null; }
+    brush: function () { return brush || null; }
   };
 })();

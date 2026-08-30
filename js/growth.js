@@ -15,95 +15,110 @@ PM.growth = (function () {
   // haloB   : яркость пушистой опушки по краю колонии
   var ARCH = {
     // ровный бархатный диск, гладкий край, почти без текстуры
-    velvet:   { wN: 1.6, wD: 0.15, wP: 2.2, wR: 0.30, wC: 0.7, wI: 2.4, wB: 1.6,
+    velvet:   { latin: 'Penicillium chrysogenum', desc: 'velvety disc, powdery bloom',
+                wN: 1.6, wD: 0.15, wP: 2.2, wR: 0.30, wC: 0.7, wI: 2.4, wB: 1.6,
                 thr: 1.35, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 176, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'smooth', haloB: 40 },
 
     // мишень: резкие концентрические зоны и широкая светлая опушка.
     // Главный мотив реальной заплесневелой чашки.
-    target:   { wN: 1.5, wD: 0.20, wP: 2.1, wR: 0.40, wC: 0.7, wI: 2.3, wB: 1.5,
+    target:   { latin: 'Trichoderma harzianum', desc: 'concentric sporulation zones',
+                wN: 1.5, wD: 0.20, wP: 2.1, wR: 0.40, wC: 0.7, wI: 2.3, wB: 1.5,
                 thr: 1.32, noiseScale: 11, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 112, noiseMul: 0.32, size: 1.4, ringAmp: 62, lobeMin: 3,  lobeMax: 5,
                 texture: 'zones', haloB: 88 },
 
     // лопастная с радиальными бороздами
-    lobed:    { wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.30, wC: 0.8, wI: 2.2, wB: 1.5,
+    lobed:    { latin: 'Fusarium oxysporum', desc: 'lobed margin, radial furrows',
+                wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.30, wC: 0.8, wI: 2.2, wB: 1.5,
                 thr: 1.30, noiseScale: 13, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 128, noiseMul: 0.60, size: 1.3, ringAmp: 0,  lobeMin: 5,  lobeMax: 11,
                 texture: 'grooves', haloB: 34 },
 
     // двудольная: две сросшиеся доли с бороздой посередине
-    bilobed:  { wN: 1.5, wD: 1.90, wP: 1.9, wR: 0.25, wC: 0.7, wI: 2.3, wB: 1.5,
+    bilobed:  { latin: 'Cladosporium herbarum', desc: 'two fused lobes with a cleft',
+                wN: 1.5, wD: 1.90, wP: 1.9, wR: 0.25, wC: 0.7, wI: 2.3, wB: 1.5,
                 thr: 1.34, noiseScale: 10, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 150, noiseMul: 0.30, size: 1.2, ringAmp: 0,  lobeMin: 2,  lobeMax: 2,
                 texture: 'groove', haloB: 56 },
 
     // длинные тонкие иглы от центра
-    starburst:{ wN: 1.5, wD: 3.20, wP: 0.45, wR: 0.20, wC: 0.9, wI: 2.2, wB: 1.5,
+    starburst:{ latin: 'Streptomyces griseus', desc: 'long radial spokes',
+                wN: 1.5, wD: 3.20, wP: 0.45, wR: 0.20, wC: 0.9, wI: 2.2, wB: 1.5,
                 thr: 1.70, noiseScale: 7,  useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 196, noiseMul: 0.35, size: 1.4, ringAmp: 0,  lobeMin: 14, lobeMax: 30,
                 texture: 'smooth', haloB: 26 },
 
     // голодный режим с экранированием: ветвится и не заплывает
-    dendrite: { wN: 2.4, wD: 0.25, wP: 0.15, wR: 0.15, wC: 2.4, wI: 2.0, wB: 1.3,
+    dendrite: { latin: 'Bacillus subtilis', desc: 'branching, nutrient-starved',
+                wN: 2.4, wD: 0.25, wP: 0.15, wR: 0.15, wC: 2.4, wI: 2.0, wB: 1.3,
                 thr: 1.95, noiseScale: 4,  useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 202, noiseMul: 1.40, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 8,
                 texture: 'smooth', haloB: 0 },
 
     // светлая масса с тёмным крапом спороносцев
-    speckle:  { wN: 1.5, wD: 0.30, wP: 1.7, wR: 0.20, wC: 0.8, wI: 2.2, wB: 1.5,
+    speckle:  { latin: 'Aspergillus flavus', desc: 'pale mat flecked with spores',
+                wN: 1.5, wD: 0.30, wP: 1.7, wR: 0.20, wC: 0.8, wI: 2.2, wB: 1.5,
                 thr: 1.36, noiseScale: 10, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 206, noiseMul: 0.45, size: 1.3, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'speckle', haloB: 30 },
 
     // сплошное поле, разбитое сеткой трещин
-    crackle:  { wN: 1.5, wD: 0.25, wP: 2.0, wR: 0.20, wC: 0.7, wI: 2.1, wB: 1.4,
+    crackle:  { latin: 'Alternaria alternata', desc: 'dark mat split by cracks',
+                wN: 1.5, wD: 0.25, wP: 2.0, wR: 0.20, wC: 0.7, wI: 2.1, wB: 1.4,
                 thr: 1.28, noiseScale: 14, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 116, noiseMul: 0.40, size: 1.6, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'crackle', haloB: 22 },
 
     // рыхлый зернистый ковёр с размытым краем
-    fuzz:     { wN: 1.2, wD: 0.30, wP: 0.9, wR: 0.15, wC: 0.9, wI: 1.9, wB: 1.4,
+    fuzz:     { latin: 'Mucor mucedo', desc: 'loose granular carpet',
+                wN: 1.2, wD: 0.30, wP: 0.9, wR: 0.15, wC: 0.9, wI: 1.9, wB: 1.4,
                 thr: 1.42, noiseScale: 6,  useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 92,  noiseMul: 0.95, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'fuzz', haloB: 18 },
 
     // цепочки пузырей: кончики раздувают светлые кольца
-    bubble:   { wN: 1.3, wD: 0.20, wP: 0.9, wR: 0.20, wC: 1.1, wI: 2.6, wB: 1.8,
+    bubble:   { latin: 'Saccharomyces cerevisiae', desc: 'chains of budding rings',
+                wN: 1.3, wD: 0.20, wP: 0.9, wR: 0.20, wC: 1.1, wI: 2.6, wB: 1.8,
                 thr: 1.65, noiseScale: 6,  useFrontier: 0.25, useTips: 1, bubbles: 1,
                 dens: 96,  noiseMul: 1.00, size: 1.0, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
                 texture: 'smooth', haloB: 0, blob: 'ring',
-                blobR: [3.0, 9.0], blobGap: [16, 38] },
+                blobR: [3.0, 7.0], blobGap: [30, 64] },
 
     // икра: плотная гроздь одинаковых мелких капель
-    roe:      { wN: 1.4, wD: 0.20, wP: 1.2, wR: 0.20, wC: 1.0, wI: 2.4, wB: 1.7,
+    roe:      { latin: 'Micrococcus luteus', desc: 'tight cluster of tiny domes',
+                wN: 1.4, wD: 0.20, wP: 1.2, wR: 0.20, wC: 1.0, wI: 2.4, wB: 1.7,
                 thr: 1.55, noiseScale: 6,  useFrontier: 0.3,  useTips: 1, bubbles: 1,
                 dens: 104, noiseMul: 0.80, size: 1.0, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
                 texture: 'smooth', haloB: 0, blob: 'dome',
                 blobR: [1.6, 3.2], blobGap: [3, 6] },
 
     // рой гладких капель с бликом, разбросанных по агару
-    droplets: { wN: 1.2, wD: 0.20, wP: 0.7, wR: 0.15, wC: 1.2, wI: 2.5, wB: 1.8,
+    droplets: { latin: 'Klebsiella pneumoniae', desc: 'scattered glossy droplets',
+                wN: 1.2, wD: 0.20, wP: 0.7, wR: 0.15, wC: 1.2, wI: 2.5, wB: 1.8,
                 thr: 1.80, noiseScale: 8,  useFrontier: 0.12, useTips: 1, bubbles: 1,
                 dens: 92,  noiseMul: 1.00, size: 0.9, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
                 texture: 'smooth', haloB: 0, blob: 'dome',
                 blobR: [4.0, 13.0], blobGap: [26, 60] },
 
     // тонкое ветвящееся кружево
-    hyphal:   { wN: 1.1, wD: 0.10, wP: 0.4, wR: 0.10, wC: 1.6, wI: 2.2, wB: 1.4,
+    hyphal:   { latin: 'Neurospora crassa', desc: 'fine branching lace',
+                wN: 1.1, wD: 0.10, wP: 0.4, wR: 0.10, wC: 1.6, wI: 2.2, wB: 1.4,
                 thr: 1.9,  noiseScale: 5,  useFrontier: 0.1,  useTips: 1, bubbles: 0,
                 dens: 168, noiseMul: 1.00, size: 1.4, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
                 texture: 'smooth', haloB: 0 },
 
     // кольцо-призрак: фронт ушёл, центр лизировался
-    crater:   { wN: 1.8, wD: 0.30, wP: 1.8, wR: 0.25, wC: 0.6, wI: 1.8, wB: 1.5,
+    crater:   { latin: 'Proteus mirabilis', desc: 'swarming ring, hollow centre',
+                wN: 1.8, wD: 0.30, wP: 1.8, wR: 0.25, wC: 0.6, wI: 1.8, wB: 1.5,
                 thr: 1.15, noiseScale: 12, useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 130, noiseMul: 0.45, size: 1.2, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'smooth', haloB: 0, hollow: true },
 
     // полупрозрачная плёнка поверх остальных
-    film:     { wN: 0.8, wD: 0.25, wP: 1.3, wR: 0.15, wC: 0.2, wI: 0.6, wB: 1.2,
+    film:     { latin: 'Pseudomonas aeruginosa', desc: 'translucent biofilm over others',
+                wN: 0.8, wD: 0.25, wP: 1.3, wR: 0.15, wC: 0.2, wI: 0.6, wB: 1.2,
                 thr: 1.05, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
                 dens: 74,  noiseMul: 1.20, size: 1.5, ringAmp: 0,  lobeMin: 3,  lobeMax: 6,
                 texture: 'smooth', haloB: 0, layer: 'veil' }
@@ -139,6 +154,7 @@ PM.growth = (function () {
     var name = pickArchetype(rnd, forcedArch);
     var a = ARCH[name];
     var sc = scale || 1;                       // всё пиксельное тянется за разрешением
+    var rot = 0.3 + rnd() * 2.4;               // угол поворота текстурных координат
     return {
       id: id, archetype: name, a: a,
       x: x, y: y,
@@ -176,6 +192,7 @@ PM.growth = (function () {
       // анизотропия: одна сторона колонии растёт охотнее — форма уходит от круга
       drift: rnd() * TAU,
       swirl: (rnd() - 0.5) * 0.09,      // закрутка борозд, чтобы не были спицами
+      rotC: Math.cos(rot), rotS: Math.sin(rot),   // поворот координат текстуры (см. scene)
       wDrift: Math.pow(rnd(), 1.6) * 0.55,
       frontier: [], tips: [], cells: 0, alive: true, stalled: 0
     };
@@ -595,6 +612,8 @@ PM.growth = (function () {
 
   return {
     ARCH: ARCH,
+    latin: function (n) { return ARCH[n] ? ARCH[n].latin : n; },
+    desc: function (n) { return ARCH[n] ? ARCH[n].desc : ''; },
     makeColony: makeColony,
     inoculate: inoculate,
     tick: tick,

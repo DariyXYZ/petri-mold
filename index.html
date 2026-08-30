@@ -1,82 +1,85 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Чашка Петри</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Petri Dish</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<button id="menu" aria-label="Настройки" title="Настройки (D)">≡</button>
+<button id="menu" aria-label="Settings" title="Settings (D)">≡</button>
 <div id="backdrop"></div>
 
 <div id="wrap">
   <canvas id="stage"></canvas>
   <div id="bar">
-    <button id="start">ЗАПУСТИТЬ</button>
-    <button id="pause" title="P">ПАУЗА</button>
-    <button id="again" title="A">та же культура</button>
-    <button id="reseed" title="R">новая чашка</button>
+    <button id="start">INOCULATE</button>
+    <button id="pause" title="P">PAUSE</button>
+    <button id="again" title="A">SAME CULTURE</button>
+    <button id="reseed" title="R">NEW DISH</button>
     <button id="save" title="S">PNG</button>
   </div>
   <div id="status"></div>
 </div>
 
-<div id="panel" role="dialog" aria-label="Настройки">
-  <h2>лаборатория</h2>
+<!-- палитра штаммов: превью-квадратики работают как кисть -->
+<aside id="strains" aria-label="Strain palette">
+  <h2>Strains</h2>
+  <div id="brushes"></div>
+  <div id="strain-info"><em>Pick a strain, then click inside the dish.</em></div>
+</aside>
 
-  <div class="row"><label for="arch">тип споры</label>
-    <select id="arch"><option value="">случайно</option></select>
-  </div>
+<div id="panel" role="dialog" aria-label="Settings">
+  <h2>Culture</h2>
 
-  <div class="row"><label>скорость</label><output id="speed-val"></output>
+  <div class="row"><label>Speed</label><output id="speed-val"></output>
     <input type="range" id="speed" min="1" max="8" step="1"></div>
 
-  <h2>картинка</h2>
+  <h2>Image</h2>
 
-  <div class="row"><label for="pal">палитра</label><select id="pal"></select></div>
+  <div class="row"><label for="pal">Palette</label><select id="pal"></select></div>
 
-  <div class="row"><label for="dither">дизеринг</label>
+  <div class="row"><label for="dither">Dithering</label>
     <input type="checkbox" id="dither" class="chk"></div>
 
-  <div class="row"><label>сила дизера</label><output id="amp-val"></output>
+  <div class="row"><label>Dither amount</label><output id="amp-val"></output>
     <input type="range" id="amp" min="0" max="60" step="1"></div>
 
-  <div class="row"><label>PNG</label><output id="exp-val"></output>
+  <div class="row"><label>PNG size</label><output id="exp-val"></output>
     <input type="range" id="exp" min="1" max="10" step="1"></div>
 
-  <h2>чашка</h2>
+  <h2>Dish</h2>
 
-  <div class="row"><label>агар центр</label><output id="agar-c-val"></output>
+  <div class="row"><label>Agar centre</label><output id="agar-c-val"></output>
     <input type="range" id="agar-c" min="40" max="160" step="1"></div>
 
-  <div class="row"><label>агар спад</label><output id="agar-f-val"></output>
+  <div class="row"><label>Agar falloff</label><output id="agar-f-val"></output>
     <input type="range" id="agar-f" min="0" max="90" step="1"></div>
 
-  <div class="row"><label>муть</label><output id="noise-val"></output>
+  <div class="row"><label>Mottling</label><output id="noise-val"></output>
     <input type="range" id="noise" min="0" max="40" step="1"></div>
 
-  <div class="row"><label>масштаб мути</label><output id="nscale-val"></output>
+  <div class="row"><label>Mottle scale</label><output id="nscale-val"></output>
     <input type="range" id="nscale" min="2" max="24" step="0.5"></div>
 
-  <div class="row"><label>сетка</label><output id="grid-val"></output>
+  <div class="row"><label>Grid</label><output id="grid-val"></output>
     <input type="range" id="grid" min="0" max="50" step="1"></div>
 
-  <div class="row"><label>обод база</label><output id="rim-b-val"></output>
+  <div class="row"><label>Rim base</label><output id="rim-b-val"></output>
     <input type="range" id="rim-b" min="60" max="220" step="1"></div>
 
-  <div class="row"><label>обод свет</label><output id="rim-s-val"></output>
+  <div class="row"><label>Rim light</label><output id="rim-s-val"></output>
     <input type="range" id="rim-s" min="0" max="90" step="1"></div>
 
-  <div class="row"><label>разрывы колец</label><output id="rim-k-val"></output>
+  <div class="row"><label>Rim breaks</label><output id="rim-k-val"></output>
     <input type="range" id="rim-k" min="0" max="1" step="0.05"></div>
 
-  <div class="row"><label>блики стекла</label><output id="glare-val"></output>
+  <div class="row"><label>Glass glare</label><output id="glare-val"></output>
     <input type="range" id="glare" min="0" max="8" step="1"></div>
 </div>
 
-<div class="hint">пробел — запуск и пауза · A — та же культура · R — новая чашка · S — PNG · D — панель</div>
+<div class="hint">space — start &amp; pause · A — same culture · R — new dish · S — PNG · D — panel</div>
 
 <script src="js/rng.js"></script>
 <script src="js/palette.js"></script>
@@ -85,6 +88,7 @@
 <script src="js/growth.js"></script>
 <script src="js/scene.js"></script>
 <script src="js/render.js"></script>
+<script src="js/preview.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
