@@ -60,12 +60,12 @@ html, body {
   position: fixed;
   inset: 0;
   z-index: 18;
-  background: rgba(0, 0, 0, .72);
-  opacity: 0;
+  /* Ловит клик мимо панели, чтобы закрыть её. Затемнения нет намеренно:
+     чашку должно быть видно, пока крутишь настройки. */
+  background: transparent;
   pointer-events: none;
-  transition: opacity .18s ease;
 }
-#backdrop.on { opacity: 1; pointer-events: auto; }
+#backdrop.on { pointer-events: auto; }
 
 #panel {
   position: fixed;
