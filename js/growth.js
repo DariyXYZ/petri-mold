@@ -12,7 +12,7 @@ PM.growth = (function () {
     // компактный бархатистый круг: держится за своих, край гладкий
     velvet:   { wN: 1.6, wD: 0.15, wP: 2.2, wR: 0.30, wC: 0.7, wI: 2.4, wB: 1.6,
                 thr: 1.35, noiseScale: 9,  useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 148, noiseMul: 0.35, size: 1.2, ringAmp: 26, lobeMin: 3,  lobeMax: 7 },
+                dens: 148, noiseMul: 0.35, size: 1.2, ringAmp: 34, lobeMin: 3,  lobeMax: 7 },
 
     // цепочки пузырей: рост через кончики, которые раздувают кольца
     bubble:   { wN: 1.3, wD: 0.20, wP: 0.9, wR: 0.20, wC: 1.1, wI: 2.6, wB: 1.8,
@@ -27,7 +27,7 @@ PM.growth = (function () {
     // лопастная колония с радиальными секторами
     lobed:    { wN: 1.4, wD: 1.50, wP: 1.1, wR: 0.55, wC: 0.8, wI: 2.2, wB: 1.5,
                 thr: 1.30, noiseScale: 13, useFrontier: 1,    useTips: 0, bubbles: 0,
-                dens: 142, noiseMul: 0.70, size: 1.3, ringAmp: 30, lobeMin: 4,  lobeMax: 9 },
+                dens: 142, noiseMul: 0.70, size: 1.3, ringAmp: 36, lobeMin: 4,  lobeMax: 9 },
 
     // концентрические кольца спороношения — «луковица» с рефа
     rings:    { wN: 1.5, wD: 0.20, wP: 2.0, wR: 1.10, wC: 0.7, wI: 2.3, wB: 1.5,
@@ -108,7 +108,9 @@ PM.growth = (function () {
       dirAngle: rnd() * TAU,
       bubbleSpacing: Math.round((16 + rnd() * 22) * sc),
       bubbleR: lerp(3.0, 9.0, rnd()) * sc,
-      maxCells: Math.round(lerp(90, 1300, Math.pow(rnd(), 2.0)) * a.size * sc * sc),
+      // не жёсткий потолок, а «жадность»: насколько охотно колония берёт площадь
+      greed: lerp(0.55, 1.0, Math.pow(rnd(), 0.7)) * a.size,
+      tone: lerp(0.74, 1.24, rnd()),
       sc: sc,
       noiseScale: a.noiseScale * sc,
       tipLife: Math.round((110 + rnd() * 200) * sc),
@@ -159,7 +161,7 @@ PM.growth = (function () {
     var cx = f.W * 0.5, cy = f.H * 0.5;
     var R = 0.436 * f.W * 0.9;
     var d = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / R;
-    return d > 0.86 ? (d - 0.86) / 0.14 : 0;
+    return d > 0.94 ? (d - 0.94) / 0.06 : 0;
   }
 
   // --- фронтальный рост по score-функции ---
@@ -215,7 +217,7 @@ PM.growth = (function () {
 
       var p = 1 / (1 + Math.exp(-(S - a.thr) * 4.5));
       if (rnd() < p) {
-        var dens = (a.dens + (rnd() - 0.5) * 40) | 0;
+        var dens = (a.dens * c.tone + (rnd() - 0.5) * 40) | 0;
         if (dens < 30) dens = 30;
         if (dens > 250) dens = 250;
         occupy(c, f, j, dens);
@@ -289,8 +291,9 @@ PM.growth = (function () {
 
       if (f.nutrient[i] < 0.14) { tip.life = 0; continue; }
 
-      if (!f.owner[i]) occupy(c, f, i, c.a.dens);
-      else if (f.density[i] < c.a.dens) f.density[i] = c.a.dens;
+      var td = c.a.dens * c.tone;
+      if (!f.owner[i]) occupy(c, f, i, td);
+      else if (f.density[i] < td) f.density[i] = td;
 
       tip.life--;
 
@@ -325,7 +328,7 @@ PM.growth = (function () {
   function inoculate(c, f, rnd) {
     var i = Math.round(c.y) * f.W + Math.round(c.x);
     if (!f.mask[i]) return;
-    occupy(c, f, i, c.a.dens);
+    occupy(c, f, i, c.a.dens * c.tone);
     if (c.a.useTips) {
       var k = 2 + ((rnd() * 2) | 0);
       for (var t = 0; t < k; t++) {
@@ -356,7 +359,7 @@ PM.growth = (function () {
 
       var budget = 0;
       if (c.a.useFrontier > 0) {
-        budget = stochasticRound(c.growthRate * speed * 0.5 * c.sc * c.sc * c.a.useFrontier, rnd);
+        budget = stochasticRound(c.growthRate * c.greed * speed * 0.7 * c.sc * c.sc * c.a.useFrontier, rnd);
         growFrontier(c, f, rnd, budget);
       }
       if (c.a.useTips) growTips(c, f, rnd, speed);
@@ -371,10 +374,10 @@ PM.growth = (function () {
         }
       }
 
-      if (c.cells >= c.maxCells) { c.alive = false; c.tips.length = 0; continue; }
-
       if (c.cells === before) {
         if (budget > 0 || c.tips.length) c.stalled++;
+        // фронт встал — колония переходит к вторичному росту внутрь себя
+        if (c.stalled > 40 && rnd() < 0.010) secondaryWave(c, f, rnd);
         // колония мертва, когда некуда расти: фронт пуст и кончиков нет
         if (!c.frontier.length && !c.tips.length) c.alive = false;
         else if (c.stalled > 600) c.alive = false;
@@ -386,6 +389,53 @@ PM.growth = (function () {
       PM.fields.diffuse(f.inhibitor, f, 0.42, 0.992);
     }
     f.tick++;
+  }
+
+  // Вторичный очаг внутри уже занятой территории: плотное пятно с обнулённым
+  // возрастом — кольца спороношения идут по нему заново. Так выглядит зрелая
+  // чашка: базовый газон и наросты поверх него.
+  function secondaryWave(c, f, rnd) {
+    var F = c.frontier;
+    var pool = F.length ? F : null;
+    var i;
+    if (pool) i = pool[(rnd() * pool.length) | 0];
+    else i = Math.round(c.y) * f.W + Math.round(c.x);
+
+    var W = f.W, H = f.H;
+    var cx = i % W, cy = (i / W) | 0;
+    // сместиться вглубь территории, а не сидеть на кайме
+    var ang = rnd() * TAU, off = rnd() * 26 * c.sc;
+    cx = Math.round(cx + Math.cos(ang) * off);
+    cy = Math.round(cy + Math.sin(ang) * off);
+
+    var r = (2 + rnd() * 6) * c.sc, ri = Math.ceil(r * 1.35);
+    var boost = 14 + rnd() * 22;
+    var cap = c.a.dens * c.tone + 62;                   // очаг не должен выбеливаться в пятно
+    var wob = rnd() * 1000;
+    for (var y = cy - ri; y <= cy + ri; y++) {
+      if (y < 1 || y >= H - 1) continue;
+      for (var x = cx - ri; x <= cx + ri; x++) {
+        if (x < 1 || x >= W - 1) continue;
+        var dx = x - cx, dy = y - cy;
+        var dd = Math.sqrt(dx * dx + dy * dy);
+        // край очага рваный, а не циркульный
+        var rr = r * (0.72 + 0.56 * PM.rng.fbm(
+          Math.cos(Math.atan2(dy, dx)) * 2.2 + wob,
+          Math.sin(Math.atan2(dy, dx)) * 2.2, c.seed + townHash(cx, cy), 2));
+        if (dd > rr) continue;
+        var j = y * W + x;
+        if (f.owner[j] !== c.id) continue;
+        if (f.tick - f.birth[j] < c.ringPeriod * 2) continue;   // только зрелый газон
+        var d = f.density[j] + boost;
+        f.density[j] = d > cap ? cap : d;
+        f.birth[j] = f.tick;          // возраст с нуля — пойдут новые кольца
+      }
+    }
+  }
+
+  function townHash(a, b) {
+    var h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263);
+    return (h ^ (h >>> 13)) >>> 0;
   }
 
   function anyAlive(colonies) {

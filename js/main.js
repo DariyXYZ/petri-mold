@@ -6,7 +6,7 @@ PM.app = (function () {
   var W = 380, H = 389;
 
   var MAX_SPORES = 8;
-  var MATURE_AT = 5200;    // тик, после которого рост заметно замедляется
+  var MATURE_AT = 7000;    // тик, после которого рост заметно замедляется
   var seed = 12345;
   var speed = 3;
 
