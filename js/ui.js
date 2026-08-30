@@ -30,10 +30,11 @@ PM.ui = (function () {
       inoculate: 'поставь споры кликами внутри чашки · ' + pts + '/' + api.MAX_SPORES,
       growing: 'растёт',
       mature: 'созревает',
+      paused: 'пауза',
       done: 'готово'
     };
     var line = LABEL[st] || st;
-    if (st === 'growing' || st === 'mature' || st === 'done') {
+    if (st !== 'inoculate') {
       var cs = api.getColonies().map(function (c) { return c.archetype; });
       var count = {};
       cs.forEach(function (a) { count[a] = (count[a] || 0) + 1; });
@@ -48,6 +49,13 @@ PM.ui = (function () {
     s.disabled = !(st === 'inoculate' && pts > 0);
     s.textContent = st === 'inoculate' ? 'ЗАПУСТИТЬ'
                   : (st === 'done' ? 'ГОТОВО' : 'РАСТЁТ…');
+
+    var p = el('pause');
+    p.disabled = !(st === 'growing' || st === 'mature' || st === 'paused');
+    p.textContent = st === 'paused' ? 'ПРОДОЛЖИТЬ' : 'ПАУЗА';
+
+    var e = el('exp-val');
+    if (e) e.textContent = api.exportSize();
   }
 
   function init(a) {
@@ -114,12 +122,13 @@ PM.ui = (function () {
     el('start').addEventListener('click', api.start);
     el('reseed').addEventListener('click', function () { api.reseed(); });
     el('again').addEventListener('click', api.sameSeed);
-    el('save').addEventListener('click', function () {
-      var link = document.createElement('a');
-      link.download = 'petri-' + api.dims() + '-' + api.getSeed() + '.png';
-      link.href = el('stage').toDataURL('image/png');
-      link.click();
-    });
+    el('pause').addEventListener('click', api.togglePause);
+    el('save').addEventListener('click', api.exportPNG);
+
+    bindRange('exp', api.getExportScale, function (v) {
+      api.setExportScale(v);
+      el('exp-val').textContent = api.exportSize();
+    }, function () {});
 
     // панель как выдвижной ящик: кнопка сверху, затемнение, Esc
     var panel = el('panel'), backdrop = el('backdrop');
@@ -136,7 +145,11 @@ PM.ui = (function () {
       if (e.key === 'Escape') setPanel(false);
       var t = e.target.tagName;
       if (t === 'INPUT' || t === 'SELECT') return;
-      if (e.code === 'Space') { e.preventDefault(); api.start(); }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (api.getState() === 'inoculate') api.start(); else api.togglePause();
+      }
+      if (e.key === 'p' || e.key === 'P') api.togglePause();
       if (e.key === 'r' || e.key === 'R') api.reseed();
       if (e.key === 'a' || e.key === 'A') api.sameSeed();
       if (e.key === 'd' || e.key === 'D') setPanel(!panel.classList.contains('open'));

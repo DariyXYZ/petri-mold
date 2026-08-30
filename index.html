@@ -15,6 +15,7 @@
   <canvas id="stage"></canvas>
   <div id="bar">
     <button id="start">ЗАПУСТИТЬ</button>
+    <button id="pause" title="P">ПАУЗА</button>
     <button id="again" title="A">та же культура</button>
     <button id="reseed" title="R">новая чашка</button>
     <button id="save" title="S">PNG</button>
@@ -41,6 +42,9 @@
 
   <div class="row"><label>сила дизера</label><output id="amp-val"></output>
     <input type="range" id="amp" min="0" max="60" step="1"></div>
+
+  <div class="row"><label>PNG</label><output id="exp-val"></output>
+    <input type="range" id="exp" min="1" max="10" step="1"></div>
 
   <h2>чашка</h2>
 
@@ -72,7 +76,7 @@
     <input type="range" id="glare" min="0" max="8" step="1"></div>
 </div>
 
-<div class="hint">пробел — запуск · A — та же культура · R — новая чашка · S — PNG · D — панель</div>
+<div class="hint">пробел — запуск и пауза · A — та же культура · R — новая чашка · S — PNG · D — панель</div>
 
 <script src="js/rng.js"></script>
 <script src="js/palette.js"></script>

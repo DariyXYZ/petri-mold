@@ -52,5 +52,23 @@ PM.rng = (function () {
     return sum / norm;
   }
 
-  return { mulberry32: mulberry32, hashSeed: hashSeed, fbm: fbm, value2d: value2d };
+  // Доменное искажение: сдвигаем координаты другим шумом. Самый дешёвый способ
+  // увести любой регулярный узор от машинной ровности — прямая линия становится
+  // блуждающей, окружность перестаёт быть циркульной.
+  function warp(x, y, seed, amp, scale) {
+    var wx = fbm(x / scale, y / scale, seed, 2) - 0.5;
+    var wy = fbm(x / scale + 31.7, y / scale - 17.3, seed + 4093, 2) - 0.5;
+    return [x + wx * amp, y + wy * amp];
+  }
+
+  // Мягкий порог вместо ступеньки: край узора перестаёт быть бритвенным.
+  function smoothstep(a, b, t) {
+    if (b === a) return t < a ? 0 : 1;
+    var u = (t - a) / (b - a);
+    if (u < 0) u = 0; else if (u > 1) u = 1;
+    return u * u * (3 - 2 * u);
+  }
+
+  return { mulberry32: mulberry32, hashSeed: hashSeed, fbm: fbm, value2d: value2d,
+           warp: warp, smoothstep: smoothstep };
 })();

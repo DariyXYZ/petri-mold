@@ -7,51 +7,62 @@ PM.scene = (function () {
   // Текстура внутренности колонии. Форма фронта у видов похожая — на глаз их
   // различает именно заполнение, поэтому оно вынесено в отдельную функцию.
   function texture(kind, c, l, age, k1, x, y, dx, dy, sc) {
+    var ss = PM.rng.smoothstep;
+
     switch (kind) {
 
-      // резкие концентрические зоны — мишень
+      // Резкие концентрические зоны мишени. Возраст подмешан шумом, иначе
+      // границы зон выходят идеальными окружностями, чего у плесени не бывает.
       case 'zones': {
-        var z = age / c.ringPeriod;
-        var band = z - Math.floor(z);
-        return l + (band < 0.44 ? 1 : -1) * c.a.ringAmp * (1 - k1 * 0.55);
+        var dz = Math.sqrt(dx * dx + dy * dy);
+        if (dz < 3 * sc) return l;
+        // радиус искажаем шумом, иначе зоны выходят циркульными окружностями
+        dz += (PM.rng.fbm(x / (13 * sc), y / (13 * sc), c.seed + 205, 3) - 0.5)
+              * c.ringPeriod * 1.6;
+        var band = dz / c.ringPeriod;
+        band -= Math.floor(band);
+        var v = ss(0.04, 0.26, band) - ss(0.48, 0.72, band);
+        return l + (v * 2 - 1) * c.a.ringAmp * (1 - k1 * 0.45);
       }
 
-      // радиальные борозды: ширина постоянная в пикселях, а не угловая
+      // Радиальные борозды. Три поправки против «спиц»: закрутка по радиусу,
+      // дрожание угла шумом и переменная толщина.
       case 'grooves': {
         var dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 2) return l;
-        var off = Math.abs(Math.sin(Math.atan2(dy, dx) * c.lobes + c.dirAngle)) * dist;
-        var wg = 1.3 * sc;
-        return off < wg ? l - 46 * (1 - off / wg) : l;
+        if (dist < 6 * sc) return l;
+        var wob = (PM.rng.fbm(x / (6 * sc), y / (6 * sc), c.seed + 311, 2) - 0.5) * 0.55;
+        var th = Math.atan2(dy, dx) + dist * c.swirl + wob;
+        var off = Math.abs(Math.sin(th * c.lobes)) * dist;
+        var wg = (1.0 + 1.1 * PM.rng.fbm(x / (14 * sc), y / (14 * sc), c.seed + 7, 1)) * sc;
+        return l - 46 * (1 - ss(0, wg, off));
       }
 
-      // одна борозда поперёк — делит колонию на две доли
+      // Борозда двудольной: изогнута шумом, к краям сходит на нет.
       case 'groove': {
         var pr = dx * Math.cos(c.dirAngle) + dy * Math.sin(c.dirAngle);
-        var w = 1.6 * sc;
-        return Math.abs(pr) < w ? l - 58 * (1 - Math.abs(pr) / w) : l;
+        pr += (PM.rng.fbm(x / (9 * sc), y / (9 * sc), c.seed + 421, 2) - 0.5) * 7 * sc;
+        var w = 1.9 * sc;
+        return l - 58 * (1 - ss(0, w, Math.abs(pr)));
       }
 
-      // мелкая складчатость — общая фактура, не зависящая от центра
-      case 'wrinkle': {
-        var wr = PM.rng.fbm(x / (4.5 * sc), y / (4.5 * sc), c.seed + 129, 2);
-        return l + (Math.abs(wr - 0.5) < 0.06 ? -38 : 0);
-      }
-
-      // тёмный крап спороносцев
+      // Крап спороносцев
       case 'speckle': {
         var sp = PM.rng.fbm(x / (2.1 * sc), y / (2.1 * sc), c.seed + 77, 1);
-        return sp > 0.60 ? l - 74 * (sp - 0.60) / 0.40 : l;
+        return l - 74 * ss(0.58, 0.86, sp);
       }
 
-      // сетка трещин: тёмные линии по гребням шума
+      // Сетка трещин. Координаты сначала искажаются, потом берётся гребень шума,
+      // а толщина линии гуляет — иначе это выглядит как начерченная сетка.
       case 'crackle': {
-        var cr = PM.rng.fbm(x / (9 * sc), y / (9 * sc), c.seed + 91, 2);
+        var w2 = PM.rng.warp(x, y, c.seed + 55, 5.5 * sc, 13 * sc);
+        var cr = PM.rng.fbm(w2[0] / (9 * sc), w2[1] / (9 * sc), c.seed + 91, 2);
         var ridge = Math.abs(cr - 0.5);
-        return ridge < 0.045 ? l - 82 * (1 - ridge / 0.045) : l;
+        var thick = (0.020 + 0.042 *
+                     PM.rng.fbm(x / (17 * sc), y / (17 * sc), c.seed + 133, 1));
+        return l - 82 * (1 - ss(thick * 0.35, thick, ridge));
       }
 
-      // рыхлая крупная зернистость
+      // Рыхлая зернистость
       case 'fuzz': {
         var fz = PM.rng.fbm(x / (2.8 * sc), y / (2.8 * sc), c.seed + 37, 3);
         return l + (fz - 0.5) * 74;
@@ -90,7 +101,8 @@ PM.scene = (function () {
             var x = i % W, y = (i / W) | 0;
             var dx = x - c.x, dy = y - c.y;
 
-            var l = dens[i] * (1 - 0.35 * k1);
+            var mott = PM.rng.fbm(x / (13 * sc), y / (13 * sc), c.seed + 863, 3);
+            var l = dens[i] * (1 - 0.35 * k1) * (0.88 + 0.24 * mott);
             l = texture(c.a.texture, c, l, age, k1, x, y, dx, dy, sc);
 
             // Пушистая опушка по краю. Ширину задаёт возраст относительно момента,
@@ -113,7 +125,10 @@ PM.scene = (function () {
             if (edge && dens[i] < 180) l += 30 * (1 - k1 * 0.6);
 
             // шов между территориями: тёмная линия делает границы читаемыми
-            if (seam) l -= 34;
+            if (seam) {
+              l -= 34 + 18 * (PM.rng.fbm(x / (5 * sc), y / (5 * sc),
+                                         c.seed + 977, 1) - 0.5);
+            }
 
             lum[i] = l;
           }

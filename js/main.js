@@ -10,7 +10,9 @@ PM.app = (function () {
   var seed = 12345;
   var speed = 3;
 
-  var state = 'inoculate';     // inoculate | growing | mature | done
+  var state = 'inoculate';   // inoculate | growing | mature | paused | done
+  var resumeTo = 'growing';  // куда вернуться из паузы
+  var exportScale = 4;       // во сколько раз крупнее буфера сохранять PNG
   var points = [], colonies = [], fields = null;
   var rnd = null, nextId = 1;
 
@@ -130,6 +132,36 @@ PM.app = (function () {
 
   function sameSeed() { newCulture(true); }
 
+  function togglePause() {
+    if (state === 'growing' || state === 'mature') {
+      resumeTo = state;
+      state = 'paused';
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      PM.ui.sync();
+    } else if (state === 'paused') {
+      state = resumeTo;
+      PM.ui.sync();
+      loop();
+    }
+  }
+
+  // Экспорт крупнее буфера: апскейл nearest-neighbour, пиксель остаётся
+  // квадратным и чётким — это не интерполяция, а честное увеличение.
+  function exportPNG() {
+    var k = exportScale;
+    var big = document.createElement('canvas');
+    big.width = W * k;
+    big.height = H * k;
+    var bx = big.getContext('2d');
+    bx.imageSmoothingEnabled = false;
+    bx.drawImage(off, 0, 0, W, H, 0, 0, W * k, H * k);
+
+    var link = document.createElement('a');
+    link.download = 'petri-' + (W * k) + 'x' + (H * k) + '-' + seed + '.png';
+    link.href = big.toDataURL('image/png');
+    link.click();
+  }
+
   function redrawBackground() { bakeBackground(); draw(); }
 
   function canvasToBuffer(ev) {
@@ -160,6 +192,11 @@ PM.app = (function () {
     PM.ui.init({
       MAX_SPORES: MAX_SPORES,
       reseed: reseed,
+      togglePause: togglePause,
+      exportPNG: exportPNG,
+      getExportScale: function () { return exportScale; },
+      setExportScale: function (v) { exportScale = v; },
+      exportSize: function () { return (W * exportScale) + '\u00d7' + (H * exportScale); },
       sameSeed: sameSeed,
       start: start,
       redraw: draw,

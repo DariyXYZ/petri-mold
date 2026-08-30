@@ -147,7 +147,7 @@ PM.growth = (function () {
       branchChance: lerp(0.004, 0.030, rnd()),
       persistence: lerp(0.20, 0.92, rnd()),
       lobeNoise: lerp(0.15, 0.85, rnd()),
-      ringPeriod: (name === 'target' ? lerp(5, 12, rnd()) : lerp(8, 26, rnd())) * sc,
+      ringPeriod: (name === 'target' ? lerp(7, 17, rnd()) : lerp(8, 26, rnd())) * sc,
       haloWidth: lerp(1, 4, rnd()),
       satelliteChance: lerp(0, 0.018, rnd()),
       inhibition: lerp(0.2, 1.0, rnd()),
@@ -175,6 +175,7 @@ PM.growth = (function () {
       delay: Math.round(Math.pow(rnd(), 1.7) * 1400),
       // анизотропия: одна сторона колонии растёт охотнее — форма уходит от круга
       drift: rnd() * TAU,
+      swirl: (rnd() - 0.5) * 0.09,      // закрутка борозд, чтобы не были спицами
       wDrift: Math.pow(rnd(), 1.6) * 0.55,
       frontier: [], tips: [], cells: 0, alive: true, stalled: 0
     };
@@ -295,36 +296,66 @@ PM.growth = (function () {
     return (rv - lv) * 0.7;
   }
 
-  // Пузырь: яркий контур + чуть более тёмное нутро, как на референсе
-  function stampBubble(c, f, cx, cy, r) {
-    var W = f.W, H = f.H, ri = Math.round(r);
+  // Пузырь/капля заводится как объект и раздувается за десятки тиков.
+  // Мгновенный штамп выглядел как подброшенная фигура, а не как рост.
+  function spawnBlob(c, f, cx, cy, rMax, rnd) {
+    if (!c.blobs) c.blobs = [];
+    if (c.blobs.length > 48 || rMax < 1) return;
+    c.blobs.push({
+      x: cx, y: cy, r: 0.5, rMax: rMax,
+      sp: rMax / (40 + rnd() * 110)          // полное раздувание за 40-150 тиков
+    });
+  }
+
+  function growBlobs(c, f) {
+    var B = c.blobs;
+    if (!B || !B.length) return;
     var dome = c.a.blob === 'dome';
-    if (ri < 1) return;
-    var r2 = r * r, rin2 = (r - 1.2) * (r - 1.2);
-    for (var y = cy - ri - 1; y <= cy + ri + 1; y++) {
-      if (y < 0 || y >= H) continue;
-      for (var x = cx - ri - 1; x <= cx + ri + 1; x++) {
-        if (x < 0 || x >= W) continue;
+    for (var k = B.length - 1; k >= 0; k--) {
+      var b = B[k];
+      var prev = b.r;
+      b.r += b.sp;
+      if (b.r > b.rMax) b.r = b.rMax;
+      paintBand(c, f, b, prev, b.r, dome);
+      if (b.r >= b.rMax) B.splice(k, 1);
+    }
+  }
+
+  // Рисуем только кольцевую полосу [r0, r1] — то, что приросло за тик.
+  function paintBand(c, f, b, r0, r1, dome) {
+    var W = f.W, H = f.H;
+    var cx = b.x, cy = b.y;
+    var ri = Math.ceil(r1) + 1;
+    var outer = r1 * r1;
+    var inner = r0 > 1.2 ? (r0 - 1.2) * (r0 - 1.2) : 0;
+    var lipIn = (r1 - 1.3) * (r1 - 1.3);
+
+    for (var y = cy - ri; y <= cy + ri; y++) {
+      if (y < 1 || y >= H - 1) continue;
+      for (var x = cx - ri; x <= cx + ri; x++) {
+        if (x < 1 || x >= W - 1) continue;
         var dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
-        if (d2 > r2 + r) continue;
+        if (d2 > outer || d2 < inner) continue;
         var i = y * W + x;
         if (!f.mask[i]) continue;
-        var isRing = d2 >= rin2;
+
+        var onLip = d2 >= lipIn;
         var val;
         if (dome) {
-          // капля: яркий блик в середине, спад к тёмному ободку
-          var t = Math.sqrt(d2) / r;
-          val = isRing ? 66 : 238 - 150 * t * t;
+          // купол считается от финального радиуса, поэтому по мере роста
+          // капля дорисовывается наружу, а блик в центре остаётся на месте
+          var t = Math.sqrt(d2) / b.rMax;
+          val = onLip && r1 >= b.rMax ? 66 : 238 - 150 * t * t;
         } else {
-          val = isRing ? 232 : 78;
+          val = onLip ? 232 : 78;
         }
+
         if (f.owner[i] && f.owner[i] !== c.id) {
-          // поверх чужой массы кладём только светлый контур — это и даёт наслоения
-          if (isRing && !dome && f.film[i] < 190) f.film[i] = 190;
+          if (onLip && !dome && f.film[i] < 190) f.film[i] = 190;
           continue;
         }
         if (!f.owner[i]) occupy(c, f, i, val);
-        else if (val > f.density[i]) f.density[i] = val;
+        else f.density[i] = val;      // своя клетка перерисовывается свободно
       }
     }
   }
@@ -370,7 +401,7 @@ PM.growth = (function () {
           tip.since = 0;
           tip.spacing = c.bubbleSpacing + ((rnd() * 14) | 0);
           var r = c.bubbleR * Math.exp((rnd() - 0.5) * 1.1);   // логнормальный разброс
-          stampBubble(c, f, ix, iy, r);
+          spawnBlob(c, f, ix, iy, r, rnd);
         }
       }
 
@@ -434,6 +465,7 @@ PM.growth = (function () {
         growFrontier(c, f, rnd, budget);
       }
       if (c.a.useTips) growTips(c, f, rnd, speed);
+      if (c.blobs && c.blobs.length) growBlobs(c, f);
 
       // сателлит — дочерний пузырь в стороне от материнской колонии
       if (c.a.bubbles && rnd() < c.satelliteChance && c.cells > 40) {
@@ -441,7 +473,7 @@ PM.growth = (function () {
         var sx = Math.round(c.x + Math.cos(ang) * dd);
         var sy = Math.round(c.y + Math.sin(ang) * dd);
         if (sx > 1 && sy > 1 && sx < f.W - 1 && sy < f.H - 1 && f.mask[sy * f.W + sx]) {
-          stampBubble(c, f, sx, sy, c.bubbleR * (0.5 + rnd()));
+          spawnBlob(c, f, sx, sy, c.bubbleR * (0.5 + rnd()), rnd);
         }
       }
 
@@ -450,7 +482,8 @@ PM.growth = (function () {
         // фронт встал — колония переходит к вторичному росту внутрь себя
         if (c.stalled > 40 && rnd() < 0.010) secondaryWave(c, f, rnd);
         // колония мертва, когда некуда расти: фронт пуст и кончиков нет
-        if (!c.frontier.length && !c.tips.length) c.alive = false;
+        if (!c.frontier.length && !c.tips.length &&
+            !(c.blobs && c.blobs.length)) c.alive = false;
         else if (c.stalled > 600) c.alive = false;
       } else { c.stalled = 0; c.lastGrow = f.tick; }
     }
@@ -499,7 +532,9 @@ PM.growth = (function () {
         if (f.tick - f.birth[j] < c.ringPeriod * 2) continue;   // только зрелый газон
         var d = f.density[j] + boost;
         f.density[j] = d > cap ? cap : d;
-        f.birth[j] = f.tick;          // возраст с нуля — пойдут новые кольца
+        // возраст сбрасывается не в ноль, а вразнобой: кольца по очагу
+        // пойдут заново, но не сойдутся в правильный медальон
+        f.birth[j] = f.tick - ((rnd() * c.ringPeriod * 2.2) | 0);
       }
     }
   }
