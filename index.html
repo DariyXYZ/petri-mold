@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Чашка Петри</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="stage"></canvas>
+  <div id="bar">
+    <button id="start">ЗАПУСТИТЬ</button>
+    <button id="again" title="A">та же культура</button>
+    <button id="reseed" title="R">новая чашка</button>
+    <button id="save" title="S">PNG</button>
+  </div>
+  <div id="status"></div>
+</div>
+
+<div id="panel">
+  <h2>лаборатория</h2>
+
+  <div class="row"><label for="arch">тип споры</label>
+    <select id="arch"><option value="">случайно</option></select>
+  </div>
+
+  <div class="row"><label>скорость</label><output id="speed-val"></output>
+    <input type="range" id="speed" min="1" max="8" step="1"></div>
+
+  <h2>картинка</h2>
+
+  <div class="row"><label for="pal">палитра</label><select id="pal"></select></div>
+
+  <div class="row"><label for="dither">дизеринг</label>
+    <input type="checkbox" id="dither" class="chk"></div>
+
+  <div class="row"><label>сила дизера</label><output id="amp-val"></output>
+    <input type="range" id="amp" min="0" max="60" step="1"></div>
+
+  <h2>чашка</h2>
+
+  <div class="row"><label>агар центр</label><output id="agar-c-val"></output>
+    <input type="range" id="agar-c" min="40" max="160" step="1"></div>
+
+  <div class="row"><label>агар спад</label><output id="agar-f-val"></output>
+    <input type="range" id="agar-f" min="0" max="90" step="1"></div>
+
+  <div class="row"><label>муть</label><output id="noise-val"></output>
+    <input type="range" id="noise" min="0" max="40" step="1"></div>
+
+  <div class="row"><label>масштаб мути</label><output id="nscale-val"></output>
+    <input type="range" id="nscale" min="2" max="24" step="0.5"></div>
+
+  <div class="row"><label>сетка</label><output id="grid-val"></output>
+    <input type="range" id="grid" min="0" max="50" step="1"></div>
+
+  <div class="row"><label>обод база</label><output id="rim-b-val"></output>
+    <input type="range" id="rim-b" min="60" max="220" step="1"></div>
+
+  <div class="row"><label>обод свет</label><output id="rim-s-val"></output>
+    <input type="range" id="rim-s" min="0" max="90" step="1"></div>
+
+  <div class="row"><label>разрывы колец</label><output id="rim-k-val"></output>
+    <input type="range" id="rim-k" min="0" max="1" step="0.05"></div>
+
+  <div class="row"><label>блики стекла</label><output id="glare-val"></output>
+    <input type="range" id="glare" min="0" max="8" step="1"></div>
+</div>
+
+<div class="hint">пробел — запуск · A — та же культура · R — новая чашка · S — PNG · D — панель</div>
+
+<script src="js/rng.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/dish.js"></script>
+<script src="js/fields.js"></script>
+<script src="js/growth.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
