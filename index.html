@@ -39,6 +39,15 @@
   <div class="row"><label>Speed</label><output id="speed-val"></output>
     <input type="range" id="speed" min="1" max="8" step="1"></div>
 
+  <div class="row"><label for="sound">Sound</label>
+    <input type="checkbox" id="sound" class="chk"></div>
+
+  <div class="row"><label>Volume</label><output id="vol-val"></output>
+    <input type="range" id="vol" min="0" max="1" step="0.05"></div>
+
+  <div class="row"><label>Density</label><output id="dens-val"></output>
+    <input type="range" id="dens" min="0.3" max="2" step="0.1"></div>
+
   <h2>Image</h2>
 
   <div class="row"><label for="pal">Palette</label><select id="pal"></select></div>
@@ -89,6 +98,7 @@
 <script src="js/growth.js"></script>
 <script src="js/scene.js"></script>
 <script src="js/render.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/cursor.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/ui.js"></script>

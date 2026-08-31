@@ -17,6 +17,8 @@ PM.app = (function () {
   var rnd = null, nextId = 1;
 
   var lum, bg, img, off, offCtx, canvas, ctx, dw, dh, raf = null;
+  var lastCells = {};        // сколько клеток было у колонии на прошлом кадре
+  var lastCount = 0;         // сколько было колоний — для звука новых очагов
 
   // ---------- буферы ----------
   function allocate() {
@@ -60,6 +62,9 @@ PM.app = (function () {
     fields.seedBase = seed;
     colonies = [];
     nextId = 1;
+    lastCells = {};
+    lastCount = 0;
+    PM.sound.reset();
     if (!keepPoints) points = [];
     state = 'inoculate';
     bakeBackground();
@@ -79,6 +84,7 @@ PM.app = (function () {
     }
     points.push({ x: Math.round(bx), y: Math.round(by),
                   arch: PM.ui.brush() || pickUnusedStrain() });
+    PM.sound.ui('spore');
     PM.ui.sync();
     draw();
   }
@@ -118,14 +124,52 @@ PM.app = (function () {
         PM.growth.tick(fields, colonies, rnd,
                        state === 'mature' ? speed * 0.3 : speed);
 
-        if (state === 'growing' && fields.tick > MATURE_AT) { state = 'mature'; PM.ui.sync(); }
-        else if (!PM.growth.anyAlive(colonies)) { state = 'done'; PM.ui.sync(); }
+        voiceGrowth();
+
+        if (state === 'growing' && fields.tick > MATURE_AT) {
+          state = 'mature'; PM.sound.event('mature'); PM.ui.sync();
+        } else if (!PM.growth.anyAlive(colonies)) { state = 'done'; PM.ui.sync(); }
         else if (fields.tick % 20 === 0) PM.ui.sync();
       }
       draw();
       if (state === 'growing' || state === 'mature') raf = requestAnimationFrame(step);
       else raf = null;
     });
+  }
+
+  // Прирост за кадр — это и есть «голос» колонии: чем быстрее растёт, тем чаще
+  // подаёт звук. Панорама берётся из её положения в чашке.
+  function voiceGrowth() {
+    if (!PM.sound.isEnabled()) return;
+
+    // Голос принадлежит ВИДУ, а не колонии: колоний бывает больше сотни, и
+    // если каждая подаёт сигнал отдельно, пул голосов упирается в потолок и
+    // всё превращается в кашу. Прирост складываем по виду, панораму берём
+    // у самой активной его колонии — она и «ведёт» партию.
+    var byArch = {};
+    for (var i = 0; i < colonies.length; i++) {
+      var c = colonies[i];
+      var was = lastCells[c.id] || 0;
+      var delta = c.cells - was;
+      lastCells[c.id] = c.cells;
+      if (delta <= 0) continue;
+
+      var a = byArch[c.archetype];
+      if (!a) a = byArch[c.archetype] = { sum: 0, best: 0, lead: c };
+      a.sum += delta;
+      if (delta > a.best) { a.best = delta; a.lead = c; }
+    }
+
+    for (var k in byArch) {
+      var e = byArch[k];
+      PM.sound.growth(e.lead, e.sum, (e.lead.x / W - 0.5) * 1.7);
+    }
+
+    if (colonies.length > lastCount) {
+      var fresh = colonies[colonies.length - 1];
+      PM.sound.event('spawn', fresh.archetype, (fresh.x / W - 0.5) * 1.7);
+    }
+    lastCount = colonies.length;
   }
 
   function draw() {
@@ -246,7 +290,8 @@ PM.app = (function () {
       getTick: function () { return fields ? fields.tick : 0; },
       getSpeed: function () { return speed; },
       setSpeed: function (v) { speed = v; },
-      dims: function () { return W + '×' + H; }
+      dims: function () { return W + '×' + H; },
+      sporePan: function (p) { return (p.x / W - 0.5) * 1.7; }
     });
 
     newCulture(false);
@@ -256,6 +301,7 @@ PM.app = (function () {
   function step(n) {
     for (var i = 0; i < n && (state === 'growing' || state === 'mature'); i++) {
       PM.growth.tick(fields, colonies, rnd, state === 'mature' ? speed * 0.3 : speed);
+      voiceGrowth();
       if (state === 'growing' && fields.tick > MATURE_AT) state = 'mature';
       else if (!PM.growth.anyAlive(colonies)) state = 'done';
     }

@@ -60,7 +60,10 @@ PM.ui = (function () {
     cap.textContent = name ? latin.split(' ')[1] : 'random';
     b.appendChild(cap);
 
-    b.addEventListener('click', function () { select(name); });
+    b.addEventListener('click', function () {
+      PM.sound.ui('select');
+      select(name);
+    });
     return b;
   }
 
@@ -146,6 +149,16 @@ PM.ui = (function () {
       api.redraw();
     });
 
+    var snd = el('sound');
+    snd.addEventListener('change', function () {
+      // контекст создаётся здесь: браузеры пускают звук только после жеста
+      PM.sound.setEnabled(snd.checked);
+      if (snd.checked) PM.sound.ui('press');
+    });
+
+    bindRange('vol', PM.sound.getVolume, PM.sound.setVolume, function () {});
+    bindRange('dens', PM.sound.getDensity, PM.sound.setDensity, function () {});
+
     var dith = el('dither');
     dith.checked = PM.render.getDither();
     dith.addEventListener('change', function () {
@@ -167,9 +180,18 @@ PM.ui = (function () {
         api.redrawBackground);
     });
 
-    el('start').addEventListener('click', api.start);
-    el('pause').addEventListener('click', api.togglePause);
-    el('reseed').addEventListener('click', function () { api.reseed(); });
+    el('start').addEventListener('click', function () {
+      PM.sound.ui('start');
+      api.start();
+    });
+    el('pause').addEventListener('click', function () {
+      PM.sound.ui('press');
+      api.togglePause();
+    });
+    el('reseed').addEventListener('click', function () {
+      PM.sound.ui('clean');
+      api.reseed();
+    });
     el('save').addEventListener('click', api.exportPNG);
 
     bindRange('exp', api.getExportScale, function (v) {
