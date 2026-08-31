@@ -14,6 +14,18 @@ PM.growth = (function () {
   // blob    : чем штампуют кончики — ring (контур) или dome (капля с бликом)
   // haloB   : яркость пушистой опушки по краю колонии
   var ARCH = {
+    // Мелкая точечная колония. Таких на чашке десятки: они засевают
+    // свободный агар между крупными пятнами.
+    dots:     { latin: 'Staphylococcus epidermidis',
+                desc: 'scattered pinpoint colonies',
+                wN: 1.1, wD: 0.08, wP: 3.4, wR: 0.15, wC: 1.0, wI: 2.9, wB: 1.8,
+                thr: 1.34, noiseScale: 14, useFrontier: 1, useTips: 0, bubbles: 0,
+                dens: 208, noiseMul: 0.05, size: 0.055, ringAmp: 0,
+                lobeMin: 3, lobeMax: 6,
+                texture: 'smooth', haloB: 26, sporeDark: 0,
+                driftMul: 0.05, edgeFade: 70,
+                hugChance: 0.22, broodSpread: 4.2, satChance: 1, satBurst: 7 },
+
     // Базовый вид: то, что вырастает на хлебе. Почти правильный круг,
     // белая кайма стерильного мицелия по краю, тёмный споровый центр,
     // слабая радиальная бороздчатость. Растёт точечно и не заплывает.
@@ -21,10 +33,11 @@ PM.growth = (function () {
                 desc: 'round velvety colony, white rim, dark spore centre',
                 wN: 0.85, wD: 0.06, wP: 3.6, wR: 0.15, wC: 0.9, wI: 2.7, wB: 1.7,
                 thr: 1.30, noiseScale: 16, useFrontier: 1, useTips: 0, bubbles: 0,
-                dens: 198, noiseMul: 0.06, size: 0.30, ringAmp: 0,
+                dens: 198, noiseMul: 0.06, size: 0.44, ringAmp: 0,
                 lobeMin: 9, lobeMax: 18,
                 texture: 'sulcate', haloB: 48, sporeDark: 84,
-                haloAgeMul: 2.2, broodSpread: 2.6,
+                haloAgeMul: 2.2, broodSpread: 2.2, hugChance: 0.62,
+                satChance: 1, fringe: 1, fringeDens: 176,
                 driftMul: 0.08, edgeFade: 190 },
 
 
@@ -107,9 +120,9 @@ PM.growth = (function () {
   };
 
   var WEIGHTS = [
-    ['colony', 20], ['target', 12], ['starburst', 10], ['crackle', 9],
-    ['speckle', 9], ['bubble', 10], ['roe', 8], ['dendrite', 8],
-    ['hyphal', 7], ['crater', 6], ['film', 5]
+    ['colony', 17], ['dots', 13], ['target', 11], ['starburst', 9],
+    ['crackle', 8], ['speckle', 8], ['bubble', 9], ['roe', 7],
+    ['dendrite', 7], ['hyphal', 6], ['crater', 5], ['film', 4]
   ];
   var TOTAL_W = 104;
 
@@ -389,7 +402,7 @@ PM.growth = (function () {
 
       if (f.nutrient[i] < 0.14) { tip.life = 0; continue; }
 
-      var td = c.a.dens * c.tone;
+      var td = (c.a.fringeDens || c.a.dens) * c.tone;
       if (!f.owner[i]) occupy(c, f, i, td);
       else if (f.density[i] < td) f.density[i] = td;
 
@@ -456,6 +469,7 @@ PM.growth = (function () {
       if (c.cells >= c.maxCells) {
         c.alive = false; c.tips.length = 0;
         sporulate(c, f, rnd, colonies);
+        scatterSatellites(c, f, rnd, colonies);
         continue;
       }
       var before = c.cells;
@@ -465,7 +479,7 @@ PM.growth = (function () {
         budget = stochasticRound(c.growthRate * c.greed * speed * 0.7 * c.sc * c.sc * c.a.useFrontier, rnd);
         growFrontier(c, f, rnd, budget);
       }
-      if (c.a.useTips) growTips(c, f, rnd, speed);
+      if (c.a.useTips || c.tips.length) growTips(c, f, rnd, speed);
       if (c.blobs && c.blobs.length) growBlobs(c, f);
 
       // сателлит — дочерний пузырь в стороне от материнской колонии
@@ -482,6 +496,23 @@ PM.growth = (function () {
         if (budget > 0 || c.tips.length) c.stalled++;
         // фронт встал — колония переходит к вторичному росту внутрь себя
         if (c.stalled > 40 && rnd() < 0.010) secondaryWave(c, f, rnd);
+        // Пушистый ореол: из края зрелой колонии выходят редкие тонкие нити,
+        // уходящие на свободный агар. На снимках это самый заметный признак
+        // живой плесени — плотное ядро в дымке гиф.
+        if (c.a.fringe && c.stalled > 20 && c.tips.length < 26 &&
+            rnd() < 0.18) {
+          var F2 = c.frontier;
+          if (F2.length) {
+            var i2 = F2[(rnd() * F2.length) | 0];
+            var fx = i2 % f.W, fy = (i2 / f.W) | 0;
+            c.tips.push({
+              x: fx, y: fy,
+              ang: Math.atan2(fy - c.y, fx - c.x) + (rnd() - 0.5) * 0.9,
+              life: Math.round((22 + rnd() * 46) * c.sc),
+              since: 0, spacing: 9999          // нить без пузырей
+            });
+          }
+        }
         // колония мертва, когда некуда расти: фронт пуст и кончиков нет
         if (!c.frontier.length && !c.tips.length &&
             !(c.blobs && c.blobs.length)) c.alive = false;
@@ -545,7 +576,7 @@ PM.growth = (function () {
     return (h ^ (h >>> 13)) >>> 0;
   }
 
-  var MAX_COLONIES = 30;
+  var MAX_COLONIES = 120;
 
   function sporulate(c, f, rnd, colonies) {
     if (c.brood <= 0 || colonies.length >= MAX_COLONIES) return;
@@ -561,7 +592,13 @@ PM.growth = (function () {
       var base = Math.sqrt(c.cells / Math.PI);
       for (var t = 0; t < 14; t++) {
         var ang = rnd() * TAU;
-        var rad = base * (0.9 + rnd() * 1.4) * (c.a.broodSpread || 1);
+        // Две повадки: сесть вплотную к матери — доли срастутся в гроздь,
+        // или уйти далеко — вырастет отдельное пятно. На снимках чашек
+        // сросшиеся гроздья встречаются чаще одиночных кругов.
+        var hug = rnd() < (c.a.hugChance === undefined ? 0.45 : c.a.hugChance);
+        var rad = hug
+          ? base * (0.72 + rnd() * 0.42)
+          : base * (1.5 + rnd() * 1.6) * (c.a.broodSpread || 1);
         x = Math.round(c.x + Math.cos(ang) * rad);
         y = Math.round(c.y + Math.sin(ang) * rad);
         if (x < 2 || y < 2 || x >= f.W - 2 || y >= f.H - 2) continue;
@@ -576,9 +613,45 @@ PM.growth = (function () {
       var kid = makeColony(colonies.length + 1, x, y,
                            rnd, f.seedBase | 0, c.archetype, c.sc);
       kid.id = nextFreeId(colonies);
-      kid.maxCells = Math.round(c.maxCells * (0.5 + rnd() * 0.75));
+      kid.maxCells = Math.round(c.maxCells * (hug ? 0.55 + rnd() * 0.5
+                                                  : 0.35 + rnd() * 0.7));
       kid.delay = f.tick + Math.round(rnd() * 260);
       kid.brood = 1;
+      inoculate(kid, f, rnd);
+      colonies.push(kid);
+    }
+  }
+
+  // Спутники — крошечные колонии, разлетающиеся далеко от матери. На фото
+  // ими засеян весь свободный агар между крупными пятнами.
+  function scatterSatellites(c, f, rnd, colonies) {
+    if (!c.a.satChance || colonies.length >= MAX_COLONIES) return;
+    var n = (c.a.satBurst || 3) + ((rnd() * 3) | 0);
+    var base = Math.sqrt(c.cells / Math.PI);
+
+    for (var k = 0; k < n; k++) {
+      if (colonies.length >= MAX_COLONIES) return;
+      var x = 0, y = 0, j = -1;
+      for (var t = 0; t < 12; t++) {
+        var ang = rnd() * TAU;
+        var rad = base * (3.0 + rnd() * 7.5);
+        x = Math.round(c.x + Math.cos(ang) * rad);
+        y = Math.round(c.y + Math.sin(ang) * rad);
+        if (x < 2 || y < 2 || x >= f.W - 2 || y >= f.H - 2) continue;
+        var q = y * f.W + x;
+        if (f.mask[q] && !f.owner[q]) { j = q; break; }
+      }
+      if (j < 0) continue;
+
+      var kid = makeColony(1, x, y, rnd, f.seedBase | 0, c.archetype, c.sc);
+      kid.id = nextFreeId(colonies);
+      kid.maxCells = Math.round(c.maxCells * (c.a.size < 0.15
+                                             ? 0.6 + rnd() * 0.7
+                                             : 0.07 + rnd() * 0.20));
+      kid.delay = f.tick + Math.round(rnd() * 500);
+      kid.brood = 0;
+      // мелкий вид рассевается волнами, крупный — нет
+      if (c.a.size >= 0.15) kid.a = Object.create(kid.a), kid.a.satChance = 0;
       inoculate(kid, f, rnd);
       colonies.push(kid);
     }

@@ -52,7 +52,7 @@ PM.scene = (function () {
         var wob = (PM.rng.fbm(rx / (7 * sc), ry / (7 * sc), c.seed + 411, 2) - 0.5) * 0.5;
         var off = Math.abs(Math.sin(Math.atan2(dy, dx) * c.lobes + wob)) * ds;
         var wd = 0.9 * sc;
-        return -16 * (1 - ss(0, wd, off));
+        return -34 * (1 - ss(0, wd, off));
       }
 
       default:
