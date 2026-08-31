@@ -79,7 +79,6 @@ PM.app = (function () {
     }
     points.push({ x: Math.round(bx), y: Math.round(by),
                   arch: PM.ui.brush() });
-    PM.ui.released();
     PM.ui.sync();
     draw();
   }

@@ -4,8 +4,9 @@ var PM = PM || {};
 // прогнанная через ту же пикселизацию, что и вся сцена: даунсемпл, квантование
 // в палитру проекта, жёсткая альфа. Иначе фотоинструмент выпадал бы из кадра.
 //
-// Два состояния: разомкнутый — спора не взята, сомкнутый — взята и её осталось
-// посадить. Кончик нижней бранши приходится ровно в точку курсора.
+// Пинцет всё время держит спору (сомкнут) и разжимается в момент клика —
+// это и есть жест «отпустили спору над чашкой». Точка, где сходятся бранши,
+// приходится ровно на курсор.
 PM.cursor = (function () {
   var W = 320;                       // ширина инструмента на экране
   // Рабочая точка — там, где сходятся бранши, а не левый угол картинки:
@@ -15,19 +16,20 @@ PM.cursor = (function () {
     shut: [0.065, 0.020]
   };
 
-  var img = null, host = null, shown = false, holding = false;
+  var img = null, host = null, shown = false;
+  var openNow = false, relaxTimer = 0;
 
   function ensure() {
     if (img) return;
     img = document.createElement('img');
     img.id = 'tool';
     img.alt = '';
-    img.src = 'assets/tweezers-open.png';
+    img.src = 'assets/tweezers-shut.png';
     document.body.appendChild(img);
   }
 
   function place(x, y) {
-    var hot = HOT[holding ? 'shut' : 'open'];
+    var hot = HOT[openNow ? 'open' : 'shut'];
     var h = img.naturalHeight && img.naturalWidth
           ? W * img.naturalHeight / img.naturalWidth
           : W;
@@ -36,10 +38,19 @@ PM.cursor = (function () {
     img.style.top = (y - hot[1] * h) + 'px';
   }
 
-  function setState(hold) {
-    holding = hold;
+  function setOpen(v, x, y) {
+    if (openNow === v) return;
+    openNow = v;
     if (!img) return;
-    img.src = 'assets/tweezers-' + (hold ? 'shut' : 'open') + '.png';
+    img.src = 'assets/tweezers-' + (v ? 'open' : 'shut') + '.png';
+    if (x !== undefined) place(x, y);
+  }
+
+  // Короткий разжим на клике: спора выпала, бранши сомкнулись обратно.
+  function release(x, y) {
+    setOpen(true, x, y);
+    clearTimeout(relaxTimer);
+    relaxTimer = setTimeout(function () { setOpen(false, x, y); }, 260);
   }
 
   function show(on) {
@@ -63,9 +74,11 @@ PM.cursor = (function () {
     });
     canvas.addEventListener('pointerleave', function () { show(false); });
     canvas.addEventListener('pointerdown', function (e) {
-      if (isActive()) place(e.clientX, e.clientY);
+      if (!isActive()) return;
+      place(e.clientX, e.clientY);
+      release(e.clientX, e.clientY);
     });
   }
 
-  return { attach: attach, setState: setState, show: show };
+  return { attach: attach, release: release, show: show };
 })();
