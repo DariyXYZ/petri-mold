@@ -66,7 +66,7 @@ PM.ui = (function () {
   }
 
   function setCursor() {
-    PM.cursor.apply(el('stage'), holding);
+    PM.cursor.setState(holding);
   }
 
   function select(name, take) {
@@ -118,6 +118,7 @@ PM.ui = (function () {
     if (e) e.textContent = api.exportSize();
 
     document.body.classList.toggle('running', st !== 'inoculate');
+    if (st !== 'inoculate') PM.cursor.show(false);
   }
 
   // ---------- инициализация ----------
@@ -126,6 +127,10 @@ PM.ui = (function () {
     api = a;
 
     buildBrushes();
+    // пинцет виден только пока расставляют споры
+    PM.cursor.attach(el('stage'), function () {
+      return api.getState() === 'inoculate';
+    });
     setCursor();
 
     var pal = el('pal');
