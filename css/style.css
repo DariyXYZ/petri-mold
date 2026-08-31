@@ -263,7 +263,7 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 @media (max-width: 760px), (pointer: coarse) {
   body { font-size: 12px; }
 
-  #wrap { padding: 112px 6px 126px; gap: 12px; }
+  #wrap { padding: 112px 6px 196px; gap: 12px; }
 
   #status { left: 8px; right: 8px; top: 66px; }
   #species { font-size: 9px; }
@@ -289,8 +289,14 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 
   #panel { width: min(300px, 86vw); }
 
-  /* три кнопки одной ширины: ряд читается как один блок управления */
-  #bar { gap: 8px; width: 100%; }
+  /* три кнопки одной ширины, прижатые к нижнему краю над палитрой */
+  #bar {
+    position: fixed;
+    left: 6px; right: 6px;
+    bottom: 130px;
+    gap: 8px;
+    z-index: 15;
+  }
   #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 8px 6px; }
 
   #menu { width: 44px; height: 44px; }
@@ -300,6 +306,7 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 
 @media (max-height: 620px) and (pointer: coarse) {
   #strains { max-height: 96px; }
-  #wrap { padding-bottom: 102px; }
+  #bar { bottom: 104px; }
+  #wrap { padding-bottom: 168px; }
   #species { display: none; }
 }

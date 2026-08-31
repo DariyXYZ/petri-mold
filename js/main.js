@@ -131,14 +131,18 @@ PM.app = (function () {
   function labelSpores() {
     if (!points.length) return;
     var k = dw / W;
+    // радиус кольца в экранных точках — цифра ставится сразу за ним,
+    // иначе налезает на прицел
+    var ring = 3.4 * (W / 192) * k;
     ctx.save();
-    ctx.font = '10px ui-monospace, Menlo, Consolas, monospace';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#cfcfcf';
+    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f2f2f2';
     for (var p = 0; p < points.length; p++) {
       ctx.fillText(String(p + 1),
-                   Math.round(points[p].x * k) + Math.round(4.6 * k),
-                   Math.round(points[p].y * k) + Math.round(1.6 * k));
+                   Math.round(points[p].x * k + ring + 5),
+                   Math.round(points[p].y * k));
     }
     ctx.restore();
   }

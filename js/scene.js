@@ -142,9 +142,10 @@ PM.scene = (function () {
   function markers(lum, f, points) {
     var W = f.W, H = f.H;
     var sc = f.scale || 1;
-    var rad = 3.2 * sc;
+    var rad = 3.4 * sc;
     var ri = Math.ceil(rad) + 1;
-    var inner = (rad - 0.75) * (rad - 0.75), outer = (rad + 0.75) * (rad + 0.75);
+    // кольцо ровно в один пиксель буфера: прицел должен быть тонким
+    var inner = (rad - 0.5) * (rad - 0.5), outer = (rad + 0.5) * (rad + 0.5);
 
     for (var p = 0; p < points.length; p++) {
       var cx = points[p].x, cy = points[p].y;
@@ -152,10 +153,10 @@ PM.scene = (function () {
       for (var y = cy - ri; y <= cy + ri; y++) {
         for (var x = cx - ri; x <= cx + ri; x++) {
           var dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
-          if (d2 >= inner && d2 <= outer) put(lum, W, H, x, y, 226);
+          if (d2 >= inner && d2 <= outer) put(lum, W, H, x, y, 152);
         }
       }
-      put(lum, W, H, cx, cy, 250);          // ровно точка клика
+      put(lum, W, H, cx, cy, 238);          // ровно точка клика
     }
   }
 
