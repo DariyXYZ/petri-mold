@@ -80,10 +80,11 @@ PM.ui = (function () {
   function sync() {
     var st = api.getState();
     var pts = api.getPoints().length;
-    var line;
 
     if (st === 'inoculate') {
-      line = 'click inside the dish to place spores · ' + pts + '/' + api.MAX_SPORES;
+      el('phase').textContent = 'click inside the dish to place spores · '
+                              + pts + '/' + api.MAX_SPORES;
+      el('species').textContent = '';
     } else {
       var LABEL = { growing: 'growing', mature: 'maturing',
                     paused: 'paused', done: 'done' };
@@ -91,12 +92,17 @@ PM.ui = (function () {
       api.getColonies().forEach(function (c) {
         count[c.archetype] = (count[c.archetype] || 0) + 1;
       });
-      var species = Object.keys(count).map(function (k) {
-        return PM.growth.latin(k).split(' ')[1] + (count[k] > 1 ? '×' + count[k] : '');
-      }).join(' · ');
-      line = (LABEL[st] || st) + ' · ' + species + ' · t' + api.getTick();
+      var kinds = Object.keys(count);
+      // Полные латинские имена, а не эпитеты: иначе непонятно, что это виды,
+      // а не просто набор слов.
+      var list = kinds.map(function (k) {
+        return PM.growth.latin(k) + (count[k] > 1 ? ' ×' + count[k] : '');
+      }).join('   ·   ');
+
+      el('phase').textContent = kinds.length + (kinds.length === 1 ? ' species ' : ' species ')
+                              + (LABEL[st] || st) + ' · t' + api.getTick();
+      el('species').textContent = list;
     }
-    el('status').textContent = line;
 
     var s = el('start');
     s.disabled = !(st === 'inoculate' && pts > 0);

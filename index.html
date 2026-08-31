@@ -12,6 +12,11 @@
 <button id="save" title="Export PNG (S)">PNG</button>
 <div id="backdrop"></div>
 
+<header id="status">
+  <div id="phase">click inside the dish to place spores</div>
+  <div id="species"></div>
+</header>
+
 <div id="wrap">
   <canvas id="stage"></canvas>
   <div id="bar">
@@ -19,7 +24,6 @@
     <button id="pause" title="P">PAUSE</button>
     <button id="reseed" title="R">CLEAN</button>
   </div>
-  <div id="status"></div>
 </div>
 
 <!-- палитра штаммов: превью-квадратики работают как кисть -->
@@ -77,8 +81,6 @@
   <div class="row"><label>Glass glare</label><output id="glare-val"></output>
     <input type="range" id="glare" min="0" max="8" step="1"></div>
 </div>
-
-<div class="hint">space — grow &amp; pause · R — clean dish · S — PNG · D — panel</div>
 
 <script src="js/rng.js"></script>
 <script src="js/palette.js"></script>

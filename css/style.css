@@ -39,17 +39,35 @@ body.running #stage { cursor: default; }
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 56px 200px 36px 8px;
+  padding: 78px 200px 24px 8px;
 }
 
-#bar { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+#bar { display: flex; gap: 8px; justify-content: center; }
+#bar button { min-width: 132px; }
 
+/* Сводка вверху: сколько видов растёт и какие именно. Внизу остаётся
+   чистое чёрное поле с чашкой. */
 #status {
-  color: #4d4d4d;
-  letter-spacing: .06em;
-  min-height: 1.5em;
+  position: fixed;
+  top: 14px;
+  left: 66px;
+  right: 250px;
+  z-index: 14;
   text-align: center;
-  padding: 0 12px;
+  pointer-events: none;
+}
+#phase {
+  color: #8c8c8c;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+#species {
+  margin-top: 4px;
+  color: #4d4d4d;
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.5;
 }
 
 /* ---------- палитра штаммов ---------- */
@@ -239,22 +257,16 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 
 #start { letter-spacing: .1em; }
 
-.hint {
-  position: fixed;
-  bottom: 10px;
-  left: 0; right: 190px;
-  text-align: center;
-  color: #2b2b2b;
-  letter-spacing: .08em;
-  pointer-events: none;
-}
 
 /* ---------- телефон ---------- */
 
 @media (max-width: 760px), (pointer: coarse) {
   body { font-size: 12px; }
 
-  #wrap { padding: 52px 6px 128px; gap: 10px; }
+  #wrap { padding: 112px 6px 126px; gap: 12px; }
+
+  #status { left: 8px; right: 8px; top: 66px; }
+  #species { font-size: 9px; }
 
   /* палитра уезжает вниз и листается горизонтально */
   #strains {
@@ -277,18 +289,17 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 
   #panel { width: min(300px, 86vw); }
 
+  /* три кнопки одной ширины: ряд читается как один блок управления */
   #bar { gap: 8px; width: 100%; }
-  #bar button { flex: 1 1 auto; min-height: 44px; padding: 8px 10px; }
-  #start { flex-basis: 100%; }
+  #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 8px 6px; }
 
   #menu { width: 44px; height: 44px; }
   #save { right: 12px; height: 44px; }
 
-  .hint { display: none; }
 }
 
 @media (max-height: 620px) and (pointer: coarse) {
   #strains { max-height: 96px; }
   #wrap { padding-bottom: 102px; }
-  #status { display: none; }
+  #species { display: none; }
 }

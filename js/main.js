@@ -132,13 +132,13 @@ PM.app = (function () {
     if (!points.length) return;
     var k = dw / W;
     ctx.save();
-    ctx.font = '600 12px ui-monospace, Menlo, Consolas, monospace';
+    ctx.font = '10px ui-monospace, Menlo, Consolas, monospace';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#e8e8e8';
+    ctx.fillStyle = '#cfcfcf';
     for (var p = 0; p < points.length; p++) {
       ctx.fillText(String(p + 1),
-                   Math.round(points[p].x * k) + 7,
-                   Math.round(points[p].y * k) + 4);
+                   Math.round(points[p].x * k) + Math.round(4.6 * k),
+                   Math.round(points[p].y * k) + Math.round(1.6 * k));
     }
     ctx.restore();
   }

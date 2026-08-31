@@ -137,24 +137,25 @@ PM.scene = (function () {
     }
   }
 
-  // Маркеры посевов до старта: только крестик, ровно в точке клика.
-  // Номера подписываются обычным шрифтом поверх канваса (см. main.js) —
-  // растровые цифры в буфере выглядели грубо.
+  // Маркеры посевов до старта: точка в тонком кольце — прицел, который не
+  // спорит с картинкой. Номер подписывается шрифтом поверх кадра (см. main.js).
   function markers(lum, f, points) {
     var W = f.W, H = f.H;
     var sc = f.scale || 1;
-    var arm = Math.max(2, Math.round(2.5 * sc));   // полудлина луча крестика
+    var rad = 3.2 * sc;
+    var ri = Math.ceil(rad) + 1;
+    var inner = (rad - 0.75) * (rad - 0.75), outer = (rad + 0.75) * (rad + 0.75);
 
     for (var p = 0; p < points.length; p++) {
-      var x = points[p].x, y = points[p].y;
+      var cx = points[p].x, cy = points[p].y;
 
-      for (var d = -arm; d <= arm; d++) {
-        if (d === 0) continue;
-        put(lum, W, H, x + d, y, 236);
-        put(lum, W, H, x, y + d, 236);
+      for (var y = cy - ri; y <= cy + ri; y++) {
+        for (var x = cx - ri; x <= cx + ri; x++) {
+          var dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+          if (d2 >= inner && d2 <= outer) put(lum, W, H, x, y, 226);
+        }
       }
-      put(lum, W, H, x, y, 252);                   // ровно точка клика
-
+      put(lum, W, H, cx, cy, 250);          // ровно точка клика
     }
   }
 
