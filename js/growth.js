@@ -555,9 +555,10 @@ PM.growth = (function () {
       if (j < 0) continue;
 
       // тот же штамм, но мельче и позже — изредка мутирует в соседний вид
-      var kid = makeColony(c.nextId ? c.nextId() : (colonies.length + 1), x, y,
-                           rnd, f.seedBase | 0,
-                           rnd() < 0.32 ? c.archetype : null, c.sc);
+      // Дочерний очаг — того же штамма. Иначе выбранный вид растворялся
+      // в случайных, и смысл выбирать штамм пропадал.
+      var kid = makeColony(colonies.length + 1, x, y,
+                           rnd, f.seedBase | 0, c.archetype, c.sc);
       kid.id = nextFreeId(colonies);
       kid.maxCells = Math.round(c.maxCells * (0.5 + rnd() * 0.75));
       kid.delay = f.tick + Math.round(rnd() * 260);

@@ -6,44 +6,31 @@ PM.scene = (function () {
 
   // Текстура внутренности колонии. Форма фронта у видов похожая — на глаз их
   // различает именно заполнение, поэтому оно вынесено в отдельную функцию.
-  function texture(kind, c, l, age, k1, x, y, dx, dy, sc) {
+  // Текстура внутренности колонии. Возвращает ДЕЛЬТУ к яркости, а не готовое
+  // значение: вызывающий домножает её на степень зрелости, поэтому узор
+  // проступает постепенно, а не включается скачком, когда пятно доросло.
+  function texture(kind, c, dens, age, k1, x, y, dx, dy, sc, rx, ry) {
     var ss = PM.rng.smoothstep;
-
-    // Мелкая колония + высокочастотный узор = орнамент, которого в природе нет.
-    // На маленьких пятнах оставляем только тон.
-    if (c.cells < 520 * sc * sc && kind !== 'smooth') {
-      if (kind !== 'speckle' && kind !== 'fuzz') return l;
-    }
-
-    // Координаты поворачиваем на угол колонии. Value-шум строится по целочисленной
-    // решётке и, попадая в резонанс с пиксельной сеткой и матрицей Байера, даёт
-    // муар — те самые кружевные решётки. Поворот разрушает это выравнивание.
-    var ca = c.rotC, sa = c.rotS;
-    var rx = x * ca - y * sa, ry = x * sa + y * ca;
 
     switch (kind) {
 
-      // Резкие концентрические зоны мишени. Возраст подмешан шумом, иначе
+      // Резкие концентрические зоны мишени. Радиус искажаем шумом, иначе
       // границы зон выходят идеальными окружностями, чего у плесени не бывает.
       case 'zones': {
         var dz = Math.sqrt(dx * dx + dy * dy);
-        if (dz < 3 * sc) return l;
-        // радиус искажаем шумом, иначе зоны выходят циркульными окружностями
+        if (dz < 3 * sc) return 0;
         dz += (PM.rng.fbm(rx / (13 * sc), ry / (13 * sc), c.seed + 205, 3) - 0.5)
               * c.ringPeriod * 1.6;
         var band = dz / c.ringPeriod;
         band -= Math.floor(band);
         var v = ss(0.04, 0.26, band) - ss(0.48, 0.72, band);
-        return l + (v * 2 - 1) * c.a.ringAmp * (1 - k1 * 0.45);
+        return (v * 2 - 1) * c.a.ringAmp;
       }
-
-      // Радиальные борозды. Три поправки против «спиц»: закрутка по радиусу,
-
 
       // Крап спороносцев
       case 'speckle': {
         var sp = PM.rng.fbm(rx / (3.9 * sc), ry / (3.9 * sc), c.seed + 77, 2);
-        return l - 74 * ss(0.58, 0.86, sp);
+        return -74 * ss(0.58, 0.86, sp);
       }
 
       // Сетка трещин. Координаты сначала искажаются, потом берётся гребень шума,
@@ -54,23 +41,19 @@ PM.scene = (function () {
         var ridge = Math.abs(cr - 0.5);
         var thick = (0.020 + 0.042 *
                      PM.rng.fbm(rx / (17 * sc), ry / (17 * sc), c.seed + 133, 1));
-        return l - 82 * (1 - ss(thick * 0.35, thick, ridge));
-      }
-
-      // Рыхлая зернистость
-      case 'fuzz': {
-        var fz = PM.rng.fbm(rx / (4.2 * sc), ry / (4.2 * sc), c.seed + 37, 3);
-        return l + (fz - 0.5) * 74;
+        return -82 * (1 - ss(thick * 0.35, thick, ridge));
       }
 
       default:
-        return l;
+        return 0;
     }
   }
 
   function overlay(lum, f, colonies) {
     var W = f.W, n = f.n;
     var own = f.owner, dens = f.density, birth = f.birth, film = f.film;
+    var texBuf = f.texBuf, texSet = f.texSet;
+    var mottBuf = f.mottBuf, cavBuf = f.cavBuf;
     var tick = f.tick, sc = f.scale || 1;
 
     var byId = [];
@@ -96,9 +79,31 @@ PM.scene = (function () {
             var x = i % W, y = (i / W) | 0;
             var dx = x - c.x, dy = y - c.y;
 
-            var mott = PM.rng.fbm(x / (16 * sc), y / (16 * sc), c.seed + 863, 3);
-            var l = dens[i] * (1 - 0.35 * k1) * (0.88 + 0.24 * mott);
-            l = texture(c.a.texture, c, l, age, k1, x, y, dx, dy, sc);
+            // Всё, что зависит только от координат, считается один раз и живёт
+            // в кэше: трёхоктавный шум на каждый пиксель каждого кадра съедал
+            // половину бюджета 60 fps.
+            if (!texSet[i]) {
+              mottBuf[i] = PM.rng.fbm(x / (16 * sc), y / (16 * sc), c.seed + 863, 3);
+              cavBuf[i] = PM.rng.fbm(x / (7 * sc), y / (7 * sc), c.seed + 613, 2);
+              if (c.a.texture !== 'smooth') {
+                // Координаты повёрнуты на угол колонии: value-шум строится по
+                // целочисленной решётке и в резонансе с пиксельной сеткой даёт муар.
+                var rx = x * c.rotC - y * c.rotS;
+                var ry = x * c.rotS + y * c.rotC;
+                texBuf[i] = texture(c.a.texture, c, dens[i], age, k1,
+                                    x, y, dx, dy, sc, rx, ry);
+              }
+              texSet[i] = 1;
+            }
+
+            var l = dens[i] * (1 - 0.35 * k1) * (0.88 + 0.24 * mottBuf[i]);
+
+            // Зрелость применяется при чтении: узор набирает силу вместе с
+            // колонией, а не включается скачком, когда пятно доросло.
+            if (texBuf[i]) {
+              var ripe = PM.rng.smoothstep(40 * sc * sc, 620 * sc * sc, c.cells);
+              if (ripe > 0.002) l += texBuf[i] * ripe * (1 - k1 * 0.45);
+            }
 
             // Пушистая опушка по краю. Ширину задаёт возраст относительно момента,
             // когда колония в последний раз росла: свежие клетки и есть периметр.
@@ -111,19 +116,15 @@ PM.scene = (function () {
             }
 
             // лизис: в старой биомассе прогорают тёмные каверны
-            if (k1 > 0.7) {
-              var cav = PM.rng.fbm(x / (7 * sc), y / (7 * sc), c.seed + 613, 2);
-              if (cav > 0.56) l -= (cav - 0.56) * 190 * (k1 - 0.7) / 0.3;
+            if (k1 > 0.7 && cavBuf[i] > 0.56) {
+              l -= (cavBuf[i] - 0.56) * 190 * (k1 - 0.7) / 0.3;
             }
 
             // активная кромка, но не поверх и без того ярких контуров пузырей
             if (edge && dens[i] < 180) l += 30 * (1 - k1 * 0.6);
 
             // шов между территориями: тёмная линия делает границы читаемыми
-            if (seam) {
-              l -= 34 + 18 * (PM.rng.fbm(x / (5 * sc), y / (5 * sc),
-                                         c.seed + 977, 1) - 0.5);
-            }
+            if (seam) l -= 34 + 18 * (cavBuf[i] - 0.5);
 
             lum[i] = l;
           }

@@ -16,6 +16,11 @@ PM.fields = (function () {
       nutrient: new Float32Array(n),
       inhibitor: new Float32Array(n),
       tmp: new Float32Array(n),
+      // кэш текстуры: узор в клетке не меняется, считаем его один раз
+      texBuf: new Float32Array(n),
+      mottBuf: new Float32Array(n),
+      cavBuf: new Float32Array(n),
+      texSet: new Uint8Array(n),
       tick: 0
     };
 
