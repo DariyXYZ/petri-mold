@@ -14,6 +14,19 @@ PM.growth = (function () {
   // blob    : чем штампуют кончики — ring (контур) или dome (капля с бликом)
   // haloB   : яркость пушистой опушки по краю колонии
   var ARCH = {
+    // Базовый вид: то, что вырастает на хлебе. Почти правильный круг,
+    // белая кайма стерильного мицелия по краю, тёмный споровый центр,
+    // слабая радиальная бороздчатость. Растёт точечно и не заплывает.
+    colony:   { latin: 'Penicillium chrysogenum',
+                desc: 'round velvety colony, white rim, dark spore centre',
+                wN: 0.85, wD: 0.06, wP: 3.6, wR: 0.15, wC: 0.9, wI: 2.7, wB: 1.7,
+                thr: 1.30, noiseScale: 16, useFrontier: 1, useTips: 0, bubbles: 0,
+                dens: 198, noiseMul: 0.06, size: 0.30, ringAmp: 0,
+                lobeMin: 9, lobeMax: 18,
+                texture: 'sulcate', haloB: 48, sporeDark: 84,
+                haloAgeMul: 2.2, broodSpread: 2.6,
+                driftMul: 0.08, edgeFade: 190 },
+
 
     // мишень: резкие концентрические зоны и широкая светлая опушка.
     // Главный мотив реальной заплесневелой чашки.
@@ -94,11 +107,11 @@ PM.growth = (function () {
   };
 
   var WEIGHTS = [
-    ['target', 14], ['starburst', 12], ['crackle', 11], ['speckle', 11],
-    ['bubble', 12], ['roe', 9], ['dendrite', 9], ['hyphal', 9],
-    ['crater', 7], ['film', 6]
+    ['colony', 20], ['target', 12], ['starburst', 10], ['crackle', 9],
+    ['speckle', 9], ['bubble', 10], ['roe', 8], ['dendrite', 8],
+    ['hyphal', 7], ['crater', 6], ['film', 5]
   ];
-  var TOTAL_W = 100;
+  var TOTAL_W = 104;
 
   var OFF8 = null;   // смещения соседей, зависят от ширины поля
 
@@ -153,7 +166,7 @@ PM.growth = (function () {
       sc: sc,
       noiseScale: a.noiseScale * sc,
       tipLife: Math.round((110 + rnd() * 200) * sc),
-      haloAge: Math.round(70 + rnd() * 220),
+      haloAge: Math.round((70 + rnd() * 220) * (a.haloAgeMul || 1)),
       lastGrow: 0,
       // споры прорастают не разом — часть отстаёт и остаётся мелкой
       delay: Math.round(Math.pow(rnd(), 1.7) * 1400),
@@ -161,7 +174,7 @@ PM.growth = (function () {
       drift: rnd() * TAU,
       swirl: (rnd() - 0.5) * 0.09,      // закрутка борозд, чтобы не были спицами
       rotC: Math.cos(rot), rotS: Math.sin(rot),   // поворот координат текстуры (см. scene)
-      wDrift: Math.pow(rnd(), 1.6) * 0.55,
+      wDrift: Math.pow(rnd(), 1.6) * 0.55 * (a.driftMul === undefined ? 1 : a.driftMul),
       frontier: [], tips: [], cells: 0, alive: true, stalled: 0
     };
   }
@@ -548,7 +561,7 @@ PM.growth = (function () {
       var base = Math.sqrt(c.cells / Math.PI);
       for (var t = 0; t < 14; t++) {
         var ang = rnd() * TAU;
-        var rad = base * (0.9 + rnd() * 1.4);
+        var rad = base * (0.9 + rnd() * 1.4) * (c.a.broodSpread || 1);
         x = Math.round(c.x + Math.cos(ang) * rad);
         y = Math.round(c.y + Math.sin(ang) * rad);
         if (x < 2 || y < 2 || x >= f.W - 2 || y >= f.H - 2) continue;

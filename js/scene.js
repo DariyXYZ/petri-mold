@@ -44,6 +44,17 @@ PM.scene = (function () {
         return -82 * (1 - ss(thick * 0.35, thick, ridge));
       }
 
+      // Радиальная бороздчатость бархатной колонии: тонкие линии от центра,
+      // ширина постоянная в пикселях, ход слегка гуляет.
+      case 'sulcate': {
+        var ds = Math.sqrt(dx * dx + dy * dy);
+        if (ds < 5 * sc) return 0;
+        var wob = (PM.rng.fbm(rx / (7 * sc), ry / (7 * sc), c.seed + 411, 2) - 0.5) * 0.5;
+        var off = Math.abs(Math.sin(Math.atan2(dy, dx) * c.lobes + wob)) * ds;
+        var wd = 0.9 * sc;
+        return -16 * (1 - ss(0, wd, off));
+      }
+
       default:
         return 0;
     }
@@ -115,6 +126,15 @@ PM.scene = (function () {
               }
             }
 
+            // Спороношение: у края мицелий ещё стерильный и потому светлый,
+            // глубже начинаются конидии и колония темнеет. Это и даёт
+            // характерную белую кайму вокруг тёмного центра.
+            var since = (c.lastGrow || tick) - birth[i];
+            if (c.a.sporeDark) {
+              l -= c.a.sporeDark *
+                   PM.rng.smoothstep(c.haloAge * 0.55, c.haloAge * 1.9, since);
+            }
+
             // лизис: в старой биомассе прогорают тёмные каверны
             if (k1 > 0.7 && cavBuf[i] > 0.56) {
               l -= (cavBuf[i] - 0.56) * 190 * (k1 - 0.7) / 0.3;
@@ -125,6 +145,13 @@ PM.scene = (function () {
 
             // шов между территориями: тёмная линия делает границы читаемыми
             if (seam) l -= 34 + 18 * (cavBuf[i] - 0.5);
+
+            if (c.a.edgeFade) {
+              // Пушистая кромка мицелия полупрозрачна: сквозь неё виден агар.
+              // Резкая граница читалась как вырезанная фигура.
+              var op = PM.rng.smoothstep(0, c.a.edgeFade, since);
+              l = lum[i] * (1 - op) + l * op;
+            }
 
             lum[i] = l;
           }
