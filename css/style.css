@@ -1,6 +1,8 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
+  /* обычной стрелки в кадре не бывает: везде прицел, над чашкой — пинцет */
+  cursor: crosshair;
   background: #000;
   color: #8c8c8c;
   font: 11px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -18,7 +20,7 @@ html, body {
 }
 /* пока расставляют споры, роль курсора играет крупный пинцет (js/cursor.js) */
 #stage.has-tool { cursor: none; }
-body.running #stage.has-tool { cursor: default; }
+body.running #stage.has-tool { cursor: crosshair; }
 
 #tool {
   position: fixed;
@@ -80,7 +82,6 @@ body.running #stage { cursor: default; }
   background: #101010;
   border: 1px solid #1e1e1e;
   border-radius: 2px;
-  cursor: pointer;
   overflow: hidden;
 }
 .tile canvas {
@@ -212,7 +213,6 @@ input[type=range]::-webkit-slider-thumb {
   width: 14px; height: 14px;
   border-radius: 50%;
   background: #b3b3b3;
-  cursor: pointer;
 }
 input[type=range]::-moz-range-thumb {
   width: 14px; height: 14px;
@@ -222,17 +222,20 @@ input[type=range]::-moz-range-thumb {
 
 .chk { width: 18px; height: 18px; justify-self: end; accent-color: #8c8c8c; }
 
+select, button, .tile, input {
+  cursor: crosshair;
+}
+
 select, button {
   background: #141414;
   color: #b3b3b3;
   border: 1px solid #262626;
   font: inherit;
   padding: 7px 11px;
-  cursor: pointer;
   border-radius: 2px;
 }
 select:hover, button:hover:not(:disabled) { border-color: #4d4d4d; color: #e6e6e6; }
-button:disabled { color: #333; cursor: default; border-color: #1a1a1a; }
+button:disabled { color: #333; border-color: #1a1a1a; }
 
 #start { letter-spacing: .1em; }
 

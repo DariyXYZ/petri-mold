@@ -100,7 +100,7 @@ PM.ui = (function () {
 
     var s = el('start');
     s.disabled = !(st === 'inoculate' && pts > 0);
-    s.textContent = st === 'inoculate' ? 'INOCULATE'
+    s.textContent = st === 'inoculate' ? 'GROW'
                   : (st === 'done' ? 'DONE' : 'GROWING…');
 
     var p = el('pause');
@@ -164,7 +164,6 @@ PM.ui = (function () {
     el('start').addEventListener('click', api.start);
     el('pause').addEventListener('click', api.togglePause);
     el('reseed').addEventListener('click', function () { api.reseed(); });
-    el('again').addEventListener('click', api.sameSeed);
     el('save').addEventListener('click', api.exportPNG);
 
     bindRange('exp', api.getExportScale, function (v) {
@@ -193,7 +192,6 @@ PM.ui = (function () {
       }
       if (e.key === 'p' || e.key === 'P') api.togglePause();
       if (e.key === 'r' || e.key === 'R') api.reseed();
-      if (e.key === 'a' || e.key === 'A') api.sameSeed();
       if (e.key === 'd' || e.key === 'D') setPanel(!panel.classList.contains('open'));
       if (e.key === 's' || e.key === 'S') api.exportPNG();
     });
