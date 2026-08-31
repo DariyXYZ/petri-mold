@@ -78,9 +78,23 @@ PM.app = (function () {
       if (d < 4) { points.splice(p, 1); PM.ui.sync(); draw(); return; }
     }
     points.push({ x: Math.round(bx), y: Math.round(by),
-                  arch: PM.ui.brush() });
+                  arch: PM.ui.brush() || pickUnusedStrain() });
     PM.ui.sync();
     draw();
+  }
+
+  // Случайная кисть выдаёт каждой споре свой вид: две одинаковые колонии в
+  // одной чашке смазывают весь смысл выбора штаммов.
+  function pickUnusedStrain() {
+    var all = PM.growth.names();
+    var used = {};
+    for (var i = 0; i < points.length; i++) if (points[i].arch) used[points[i].arch] = 1;
+
+    var free = [];
+    for (var k = 0; k < all.length; k++) if (!used[all[k]]) free.push(all[k]);
+    // штаммов больше, чем спор, так что запас кончиться не должен
+    var pool = free.length ? free : all;
+    return pool[(Math.random() * pool.length) | 0];
   }
 
   function start() {

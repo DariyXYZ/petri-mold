@@ -30,7 +30,7 @@ PM.ui = (function () {
     var names = PM.growth.names();
 
     // случайный штамм — первой кнопкой
-    box.appendChild(makeTile('', 'Random strain', 'any of the fifteen'));
+    box.appendChild(makeTile('', 'Random', 'each spore a different species'));
 
     for (var i = 0; i < names.length; i++) {
       var n = names[i];
@@ -72,7 +72,7 @@ PM.ui = (function () {
     }
     el('strain-info').innerHTML = name
       ? '<b>' + PM.growth.latin(name) + '</b><br>' + PM.growth.desc(name)
-      : '<em>Random strain — a different species each time.</em>';
+      : '<em>Random — every spore gets a different species.</em>';
   }
 
   // ---------- статус ----------
