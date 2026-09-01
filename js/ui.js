@@ -150,6 +150,7 @@ PM.ui = (function () {
     });
 
     var snd = el('sound');
+    snd.checked = PM.sound.isEnabled();
     snd.addEventListener('change', function () {
       // контекст создаётся здесь: браузеры пускают звук только после жеста
       PM.sound.setEnabled(snd.checked);

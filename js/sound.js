@@ -49,23 +49,23 @@ PM.sound = (function () {
     // кольцо-призрак: длинный низкий выдох
     crater:   { freq: P.A1, q: 4,  grains: 2, spread: 700, dur: 5.0, attack: 1.2,
                 air: 0.55, gain: 0.17, every: 2000 },
-    // трещины: шорох без высоты
-    crackle:  { freq: 2400, q: 2.2, grains: 5, spread: 150, dur: 0.35, attack: 0.005,
-                air: 1.0,  gain: 0.055, every: 380, tonal: 0 },
-    // крап: далёкий шелест
-    speckle:  { freq: 4200, q: 1.4, grains: 4, spread: 300, dur: 0.8, attack: 0.12,
-                air: 1.0,  gain: 0.04, every: 460, tonal: 0 },
-    // гифы: дыхание на пределе слышимости
-    hyphal:   { freq: 6400, q: 1.0, grains: 3, spread: 380, dur: 1.2, attack: 0.3,
-                air: 1.0,  gain: 0.032, every: 520, tonal: 0 },
+    // трещины: сухой деревянный треск, а не шорох
+    crackle:  { freq: P.D3, q: 11, grains: 4, spread: 170, dur: 0.5, attack: 0.008,
+                air: 0.9,  gain: 0.05, every: 420 },
+    // крап: мягкий шелест с опорой на ноту
+    speckle:  { freq: P.C4, q: 12, grains: 3, spread: 320, dur: 0.9, attack: 0.14,
+                air: 0.85, gain: 0.038, every: 520 },
+    // гифы: тихий высокий призвук
+    hyphal:   { freq: P.E4, q: 14, grains: 3, spread: 400, dur: 1.3, attack: 0.32,
+                air: 0.8,  gain: 0.030, every: 580 },
     // плёнка: непрерывный подклад
     film:     { freq: P.A1, drone: 1, gain: 0.06 }
   };
 
   var ctx = null, master = null, revb = null, wet = null;
   var noiseBuf = null, drones = {}, last = {};
-  var live = 0, MAX_VOICES = 26;
-  var enabled = false, started = false;
+  var live = 0, MAX_VOICES = 16;
+  var enabled = true, started = false;    // включён сразу, ждём только жеста
   var volume = 0.75, density = 1.0;
 
   // ---------- граф ----------
@@ -78,12 +78,23 @@ PM.sound = (function () {
     master = ctx.createGain();
     master.gain.value = 0;
 
+    // подрезаем сумму ДО насыщения, иначе кривая всё время в изгибе
+    var pre = ctx.createGain();
+    pre.gain.value = 0.5;
+
+    // Мягкое насыщение вместо компрессора: у него нет ни атаки, ни
+    // восстановления, поэтому нечему «дышать» на всплесках.
+    var shaper = ctx.createWaveShaper();
+    shaper.curve = softCurve(1.6);
+    shaper.oversample = '4x';
+
+    // страховочный лимитер, почти всегда бездействует
     var lim = ctx.createDynamicsCompressor();
-    lim.threshold.value = -14;
-    lim.knee.value = 8;
-    lim.ratio.value = 10;
-    lim.attack.value = 0.01;
-    lim.release.value = 0.3;
+    lim.threshold.value = -2;
+    lim.knee.value = 14;
+    lim.ratio.value = 3;
+    lim.attack.value = 0.006;
+    lim.release.value = 0.25;
 
     // Верх отрезаем заметно ниже обычного: звук уходит «в глубину кадра»
     // и перестаёт царапать. Резкий верх — половина ощущения дешёвой синтетики.
@@ -96,7 +107,8 @@ PM.sound = (function () {
     hp.type = 'highpass';
     hp.frequency.value = 38;
 
-    master.connect(lim); lim.connect(lp); lp.connect(hp);
+    master.connect(pre); pre.connect(shaper); shaper.connect(lim);
+    lim.connect(lp); lp.connect(hp);
     hp.connect(ctx.destination);
 
     // Долгий реверб — главный носитель «атмосферы». Импульс с предзадержкой:
@@ -104,12 +116,22 @@ PM.sound = (function () {
     revb = ctx.createConvolver();
     revb.buffer = impulse(5.2, 2.1, 0.03);
     wet = ctx.createGain();
-    wet.gain.value = 0.85;
+    wet.gain.value = 0.32;
     revb.connect(wet); wet.connect(master);
 
     noiseBuf = noise(2.5);
     ambientDrone();
     return true;
+  }
+
+  // tanh-кривая: около нуля прозрачна, к краям плавно заваливается
+  function softCurve(amount) {
+    var n = 2048, curve = new Float32Array(n), k = Math.tanh(amount);
+    for (var i = 0; i < n; i++) {
+      var x = i * 2 / n - 1;
+      curve[i] = Math.tanh(x * amount) / k;
+    }
+    return curve;
   }
 
   function impulse(sec, decay, pre) {
@@ -154,7 +176,7 @@ PM.sound = (function () {
     node.connect(pan);
     pan.connect(master);
     var s = ctx.createGain();
-    s.gain.value = send === undefined ? 0.8 : send;
+    s.gain.value = send === undefined ? 0.35 : send;
     pan.connect(s); s.connect(revb);
   }
 
@@ -171,7 +193,8 @@ PM.sound = (function () {
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(v.gain * (mul || 1), t + att);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    g.gain.linearRampToValueAtTime(0, t + dur + 0.03);
 
     var src = ctx.createBufferSource();
     src.buffer = noiseBuf;
@@ -205,9 +228,9 @@ PM.sound = (function () {
       osc.start(t); osc.stop(t + dur + 0.05);
     }
 
-    out(g, x, 0.9);
+    out(g, x, 0.4);
     src.start(t);
-    src.stop(t + dur + 0.05);
+    src.stop(t + dur + 0.06);
     src.onended = freeSlot;
   }
 
@@ -266,7 +289,7 @@ PM.sound = (function () {
     src.connect(lp); lp.connect(ng); ng.connect(g);
     src.start(t);
 
-    out(g, 0, 0.6);
+    out(g, 0, 0.3);
     drones.ambient = { gain: g };
   }
 
@@ -285,7 +308,7 @@ PM.sound = (function () {
       o.connect(og); og.connect(g);
       o.start(t);
     }
-    out(g, x, 0.9);
+    out(g, x, 0.4);
     drones[name] = { gain: g };
   }
 
@@ -367,12 +390,13 @@ PM.sound = (function () {
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(u.gain, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + u.dur);
+    g.gain.exponentialRampToValueAtTime(0.0008, t + u.dur);
+    g.gain.linearRampToValueAtTime(0, t + u.dur + 0.02);
 
     src.connect(bp); bp.connect(g);
-    out(g, 0, 0.25);                    // почти сухо
+    out(g, 0, 0.12);                    // почти сухо
     src.start(t);
-    src.stop(t + u.dur + 0.03);
+    src.stop(t + u.dur + 0.04);
     src.onended = freeSlot;
   }
 
@@ -394,6 +418,20 @@ PM.sound = (function () {
   }
 
   function reset() { fadeDrones(); last = {}; }
+
+  // Браузер не даёт создать звук без жеста пользователя, поэтому контекст
+  // поднимается на первом же касании страницы, а не по тумблеру.
+  function arm() {
+    function wake() {
+      if (enabled && !started) setEnabled(true);
+      else if (enabled && ctx && ctx.state === 'suspended') ctx.resume();
+    }
+    ['pointerdown', 'keydown', 'touchstart'].forEach(function (e) {
+      document.addEventListener(e, wake, { passive: true });
+    });
+  }
+
+  arm();
 
   return {
     setEnabled: setEnabled,
