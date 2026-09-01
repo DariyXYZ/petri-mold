@@ -154,15 +154,30 @@ PM.sound = (function () {
     return buf;
   }
 
+  // Шум для петли. Сгенерированный «в лоб» буфер щёлкает на каждом обороте:
+  // последний сэмпл и первый не стыкуются. Это и был фоновый пшик — ровно
+  // раз в длину буфера, независимо от того, растёт что-нибудь или нет.
+  // Лечится кроссфейдом: голова буфера смешивается с продолжением хвоста,
+  // поэтому переход через стык остаётся непрерывным.
   function noise(sec) {
-    var len = Math.floor(ctx.sampleRate * sec);
-    var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    var d = buf.getChannelData(0);
+    var sr = ctx.sampleRate;
+    var len = Math.floor(sr * sec);
+    var fade = Math.floor(sr * 0.12);
+
+    var raw = new Float32Array(len + fade);
     var v = 0;
-    for (var i = 0; i < len; i++) {
+    for (var i = 0; i < raw.length; i++) {
       // окрашенный шум: ближе к воздуху, чем к белому шипению
       v = v * 0.28 + (Math.random() * 2 - 1) * 0.72;
-      d[i] = v;
+      raw[i] = v;
+    }
+
+    var buf = ctx.createBuffer(1, len, sr);
+    var d = buf.getChannelData(0);
+    for (var j = 0; j < len; j++) d[j] = raw[j];
+    for (var k = 0; k < fade; k++) {
+      var a = k / fade;
+      d[k] = raw[len + k] * (1 - a) + raw[k] * a;
     }
     return buf;
   }
@@ -355,6 +370,31 @@ PM.sound = (function () {
     return true;
   }
 
+  // Голос вида — только тембр. Регистр и вес даёт РАЗМЕР колонии: мелочь
+  // отзывается высоко, коротко и легко, крупные массы — низко, длинно и
+  // насыщенно. Так набор одновременно растущих колоний складывается в
+  // композицию, а не в ровный поток одинаковых событий.
+  function byScale(v, c) {
+    var unit = 600 * (c.sc || 1) * (c.sc || 1);
+    var big = c.cells / unit;                 // 0 — крошка, 4+ — большая масса
+
+    var semi, weight, len, grains;
+    if (big < 0.25)      { semi =  12; weight = 0.55; len = 0.55; grains = -1; }
+    else if (big < 1)    { semi =   7; weight = 0.75; len = 0.8;  grains =  0; }
+    else if (big < 2.5)  { semi =   0; weight = 1.0;  len = 1.0;  grains =  0; }
+    else if (big < 5)    { semi =  -5; weight = 1.15; len = 1.5;  grains =  1; }
+    else                 { semi = -12; weight = 1.3;  len = 2.1;  grains =  2; }
+
+    return {
+      freq: v.freq * Math.pow(2, semi / 12),
+      q: v.q, spread: v.spread * len, dur: v.dur * len,
+      attack: v.attack * (len > 1 ? len * 0.8 : 1),
+      air: v.air, tonal: v.tonal, rise: v.rise, arp: v.arp,
+      gain: v.gain * weight,
+      grains: Math.max(1, (v.grains || 3) + grains)
+    };
+  }
+
   function growth(c, delta, panX) {
     if (!enabled || !ctx || delta <= 0) return;
     var v = VOICE[c.archetype];
@@ -363,7 +403,7 @@ PM.sound = (function () {
 
     var every = v.every / (density * Math.min(2.4, 1 + delta * 0.04));
     if (!due(c.archetype, every)) return;
-    cloud(v, panX, Math.min(1.3, 0.55 + delta * 0.02));
+    cloud(byScale(v, c), panX, Math.min(1.3, 0.55 + delta * 0.02));
   }
 
   function event(kind, arch, panX) {
