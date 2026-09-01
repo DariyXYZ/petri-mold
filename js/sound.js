@@ -178,6 +178,15 @@ PM.sound = (function () {
     var s = ctx.createGain();
     s.gain.value = send === undefined ? 0.35 : send;
     pan.connect(s); s.connect(revb);
+    return { pan: pan, send: s };
+  }
+
+  // Отцепить отзвучавшую цепочку от шин. Пока узел соединён с мастером,
+  // сборщик его не тронет, а событий за минуту роста сотни.
+  function detach(tail) {
+    if (!tail) return;
+    try { tail.pan.disconnect(); } catch (e) {}
+    try { tail.send.disconnect(); } catch (e) {}
   }
 
   // ---------- зерно ----------
@@ -228,10 +237,10 @@ PM.sound = (function () {
       osc.start(t); osc.stop(t + dur + 0.05);
     }
 
-    out(g, x, 0.4);
+    var tail = out(g, x, 0.4);
     src.start(t);
     src.stop(t + dur + 0.06);
-    src.onended = freeSlot;
+    src.onended = function () { freeSlot(); detach(tail); };
   }
 
   // Облако зёрен: разброс по времени, высоте и панораме. Именно он превращает
@@ -300,6 +309,7 @@ PM.sound = (function () {
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(v.gain, t + 6);
 
+    var nodes = [];
     for (var i = 0; i < 2; i++) {
       var o = ctx.createOscillator();
       o.type = 'sine';
@@ -307,18 +317,31 @@ PM.sound = (function () {
       var og = ctx.createGain(); og.gain.value = 0.5;
       o.connect(og); og.connect(g);
       o.start(t);
+      nodes.push(o);
     }
-    out(g, x, 0.4);
-    drones[name] = { gain: g };
+    var tail = out(g, x, 0.4);
+    drones[name] = { gain: g, nodes: nodes, tail: tail };
   }
 
+  // Дрон надо не только заглушить, но и ОСТАНОВИТЬ. Раньше узлы просто
+  // теряли ссылку и продолжали работать с нулевой громкостью: каждая новая
+  // культура добавляла дрон поверх прежних, сумма росла, насыщение уводило
+  // всю картину вниз — фон проседал и щёлкал.
   function fadeDrones() {
     if (!ctx) return;
     var t = ctx.currentTime;
     for (var k in drones) {
       if (k === 'ambient') continue;
-      drones[k].gain.gain.cancelScheduledValues(t);
-      drones[k].gain.gain.linearRampToValueAtTime(0, t + 2);
+      var d = drones[k];
+      d.gain.gain.cancelScheduledValues(t);
+      d.gain.gain.setValueAtTime(d.gain.gain.value, t);
+      d.gain.gain.linearRampToValueAtTime(0, t + 1.6);
+      if (d.nodes) {
+        for (var i = 0; i < d.nodes.length; i++) d.nodes[i].stop(t + 1.7);
+        d.nodes[d.nodes.length - 1].onended = (function (tail) {
+          return function () { detach(tail); };
+        })(d.tail);
+      }
       delete drones[k];
     }
   }
@@ -367,8 +390,8 @@ PM.sound = (function () {
     select: { freq: 3200, q: 9,  dur: 0.13, gain: 0.030 },
     spore:  { freq: 1900, q: 12, dur: 0.22, gain: 0.042 },
     press:  { freq: 2600, q: 8,  dur: 0.11, gain: 0.026 },
-    start:  { freq: 620,  q: 5,  dur: 0.7,  gain: 0.055 },
-    clean:  { freq: 420,  q: 3,  dur: 0.9,  gain: 0.05  }
+    start:  { freq: P.A3, q: 11, dur: 0.8,  gain: 0.05  },
+    clean:  { freq: P.D3, q: 10, dur: 1.0,  gain: 0.045 }
   };
 
   function ui(kind) {
@@ -389,15 +412,15 @@ PM.sound = (function () {
 
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(u.gain, t + 0.006);
+    g.gain.linearRampToValueAtTime(u.gain, t + (u.dur > 0.4 ? 0.05 : 0.006));
     g.gain.exponentialRampToValueAtTime(0.0008, t + u.dur);
     g.gain.linearRampToValueAtTime(0, t + u.dur + 0.02);
 
     src.connect(bp); bp.connect(g);
-    out(g, 0, 0.12);                    // почти сухо
+    var tail = out(g, 0, 0.12);         // почти сухо
     src.start(t);
     src.stop(t + u.dur + 0.04);
-    src.onended = freeSlot;
+    src.onended = function () { freeSlot(); detach(tail); };
   }
 
   // ---------- управление ----------
