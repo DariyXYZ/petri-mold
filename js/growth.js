@@ -126,6 +126,14 @@ PM.growth = (function () {
   ];
   var TOTAL_W = 104;
 
+  // Порядок в палитре: сперва выразительные формы (нити, цепочки колец, лучи,
+  // грозди), потом округлые массы, в конце фон — россыпь, крап, плёнка.
+  // От весов раздачи он не зависит.
+  var ORDER = [
+    'hyphal', 'bubble', 'starburst', 'roe', 'dendrite', 'crater',
+    'target', 'crackle', 'colony', 'dots', 'speckle', 'film'
+  ];
+
   var OFF8 = null;   // смещения соседей, зависят от ширины поля
 
   function buildOffsets(W) {
@@ -676,6 +684,6 @@ PM.growth = (function () {
     inoculate: inoculate,
     tick: tick,
     anyAlive: anyAlive,
-    names: function () { return WEIGHTS.map(function (w) { return w[0]; }); }
+    names: function () { return ORDER.slice(); }
   };
 })();

@@ -27,46 +27,46 @@ PM.sound = (function () {
   var VOICE = {
     // базовая плесень: тёплый деревянный резонанс, медленное дыхание
     colony:   { freq: P.D3, q: 9,  grains: 4, spread: 260, dur: 1.6, attack: 0.22,
-                air: 0.85, gain: 0.15, every: 620 },
+                air: 0.85, gain: 0.1875, every: 620 },
     // мелкая россыпь: сухие капли высоко, почти без тона
     dots:     { freq: P.E5, q: 16, grains: 3, spread: 130, dur: 0.5, attack: 0.03,
-                air: 0.95, gain: 0.05, every: 260 },
+                air: 0.95, gain: 0.0625, every: 260 },
     // мишень: низкий гулкий обертон, как удар по стеклу через воду
     target:   { freq: P.A2, q: 6,  grains: 3, spread: 420, dur: 3.4, attack: 0.5,
-                air: 0.6,  gain: 0.16, every: 1100 },
+                air: 0.6,  gain: 0.2, every: 1100 },
     // лучи: облако зёрен, расходящееся по высоте
     starburst:{ freq: P.A4, q: 13, grains: 7, spread: 520, dur: 1.1, attack: 0.06,
-                air: 0.8,  gain: 0.08, every: 900, arp: 1 },
+                air: 0.8,  gain: 0.1, every: 900, arp: 1 },
     // пузыри: восходящий резонанс, как воздух в жидкости
     bubble:   { freq: P.A3, q: 14, grains: 2, spread: 90,  dur: 1.0, attack: 0.05,
-                air: 0.7,  gain: 0.11, every: 520, rise: 1 },
+                air: 0.7,  gain: 0.1375, every: 520, rise: 1 },
     // икра: очень мелкие частые капли
     roe:      { freq: P.C5, q: 18, grains: 4, spread: 110, dur: 0.4, attack: 0.02,
-                air: 1.0,  gain: 0.045, every: 300 },
+                air: 1.0,  gain: 0.0562, every: 300 },
     // ветвление: короткий сухой треск дерева
     dendrite: { freq: P.G3, q: 7,  grains: 3, spread: 180, dur: 0.7, attack: 0.01,
-                air: 1.0,  gain: 0.07, every: 480 },
+                air: 1.0,  gain: 0.0875, every: 480 },
     // кольцо-призрак: длинный низкий выдох
     crater:   { freq: P.A1, q: 4,  grains: 2, spread: 700, dur: 5.0, attack: 1.2,
-                air: 0.55, gain: 0.17, every: 2000 },
+                air: 0.55, gain: 0.2125, every: 2000 },
     // трещины: сухой деревянный треск, а не шорох
     crackle:  { freq: P.D3, q: 11, grains: 4, spread: 170, dur: 0.5, attack: 0.008,
-                air: 0.9,  gain: 0.05, every: 420 },
+                air: 0.9,  gain: 0.0625, every: 420 },
     // крап: мягкий шелест с опорой на ноту
     speckle:  { freq: P.C4, q: 12, grains: 3, spread: 320, dur: 0.9, attack: 0.14,
-                air: 0.85, gain: 0.038, every: 520 },
+                air: 0.85, gain: 0.0475, every: 520 },
     // гифы: тихий высокий призвук
     hyphal:   { freq: P.E4, q: 14, grains: 3, spread: 400, dur: 1.3, attack: 0.32,
-                air: 0.8,  gain: 0.030, every: 580 },
+                air: 0.8,  gain: 0.0375, every: 580 },
     // плёнка: непрерывный подклад
-    film:     { freq: P.A1, drone: 1, gain: 0.06 }
+    film:     { freq: P.A1, drone: 1, gain: 0.075 }
   };
 
   var ctx = null, master = null, revb = null, wet = null;
   var noiseBuf = null, drones = {}, last = {};
   var live = 0, MAX_VOICES = 16;
   var enabled = true, started = false;    // включён сразу, ждём только жеста
-  var volume = 0.75, density = 1.0;
+  var volume = 1.0, density = 1.0;
 
   // ---------- граф ----------
 
@@ -80,19 +80,19 @@ PM.sound = (function () {
 
     // подрезаем сумму ДО насыщения, иначе кривая всё время в изгибе
     var pre = ctx.createGain();
-    pre.gain.value = 0.5;
+    pre.gain.value = 0.42;
 
     // Мягкое насыщение вместо компрессора: у него нет ни атаки, ни
     // восстановления, поэтому нечему «дышать» на всплесках.
     var shaper = ctx.createWaveShaper();
-    shaper.curve = softCurve(1.6);
+    shaper.curve = softCurve(2.4);
     shaper.oversample = '4x';
 
     // страховочный лимитер, почти всегда бездействует
     var lim = ctx.createDynamicsCompressor();
-    lim.threshold.value = -2;
+    lim.threshold.value = -1;
     lim.knee.value = 14;
-    lim.ratio.value = 3;
+    lim.ratio.value = 2.5;
     lim.attack.value = 0.006;
     lim.release.value = 0.25;
 
@@ -100,7 +100,7 @@ PM.sound = (function () {
     // и перестаёт царапать. Резкий верх — половина ощущения дешёвой синтетики.
     var lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 4600;
+    lp.frequency.value = 6000;
     lp.Q.value = 0.4;
 
     var hp = ctx.createBiquadFilter();
@@ -412,14 +412,14 @@ PM.sound = (function () {
     if (kind === 'spawn') {
       if (!due('spawn', 620 / density)) return;
       cloud({ freq: P.E4, q: 15, grains: 2, spread: 120, dur: 0.55,
-              attack: 0.04, air: 1.0, gain: 0.04, tonal: 0 }, panX, 1);
+              attack: 0.04, air: 1.0, gain: 0.05, tonal: 0 }, panX, 1);
     } else if (kind === 'seam') {
       if (!due('seam', 900)) return;
       cloud({ freq: 180, q: 3, grains: 2, spread: 200, dur: 1.6,
-              attack: 0.25, air: 0.8, gain: 0.09, tonal: 0 }, panX, 1);
+              attack: 0.25, air: 0.8, gain: 0.1125, tonal: 0 }, panX, 1);
     } else if (kind === 'mature') {
       cloud({ freq: P.A2, q: 5, grains: 3, spread: 700, dur: 5.5,
-              attack: 1.4, air: 0.6, gain: 0.13 }, 0, 1);
+              attack: 1.4, air: 0.6, gain: 0.1625 }, 0, 1);
     }
   }
 
@@ -427,11 +427,11 @@ PM.sound = (function () {
 
   // Отклики еле слышные и сухие: это не часть картины, а подтверждение нажатия.
   var UI = {
-    select: { freq: 3200, q: 9,  dur: 0.13, gain: 0.030 },
-    spore:  { freq: 1900, q: 12, dur: 0.22, gain: 0.042 },
-    press:  { freq: 2600, q: 8,  dur: 0.11, gain: 0.026 },
-    start:  { freq: P.A3, q: 11, dur: 0.8,  gain: 0.05  },
-    clean:  { freq: P.D3, q: 10, dur: 1.0,  gain: 0.045 }
+    select: { freq: 3200, q: 9,  dur: 0.13, gain: 0.0375 },
+    spore:  { freq: 1900, q: 12, dur: 0.22, gain: 0.0525 },
+    press:  { freq: 2600, q: 8,  dur: 0.11, gain: 0.0325 },
+    start:  { freq: P.A3, q: 11, dur: 0.8,  gain: 0.0625  },
+    clean:  { freq: P.D3, q: 10, dur: 1.0,  gain: 0.0562 }
   };
 
   function ui(kind) {
