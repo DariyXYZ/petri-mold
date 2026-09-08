@@ -196,7 +196,8 @@ PM.growth = (function () {
       swirl: (rnd() - 0.5) * 0.09,      // закрутка борозд, чтобы не были спицами
       rotC: Math.cos(rot), rotS: Math.sin(rot),   // поворот координат текстуры (см. scene)
       wDrift: Math.pow(rnd(), 1.6) * 0.55 * (a.driftMul === undefined ? 1 : a.driftMul),
-      frontier: [], tips: [], cells: 0, alive: true, stalled: 0
+      frontier: [], tips: [], blobs: [], waves: [],
+      cells: 0, alive: true, stalled: 0
     };
   }
 
@@ -319,21 +320,25 @@ PM.growth = (function () {
   // Мгновенный штамп выглядел как подброшенная фигура, а не как рост.
   function spawnBlob(c, f, cx, cy, rMax, rnd) {
     if (!c.blobs) c.blobs = [];
-    if (c.blobs.length > 48 || rMax < 1) return;
+    if (c.blobs.length > 120 || rMax < 1) return;
     c.blobs.push({
       x: cx, y: cy, r: 0.5, rMax: rMax,
-      sp: rMax / (40 + rnd() * 110)          // полное раздувание за 40-150 тиков
+      // Время раздувания растёт вместе с радиусом: раньше крупный пузырь
+      // успевал надуться за то же, что мелкая капля, и читался как
+      // подброшенная фигура. Счёт в тиках, ход домножается на скорость
+      // культуры — капли идут в одном темпе с фронтом.
+      sp: rMax / (300 + rnd() * 300 + rMax * 18)
     });
   }
 
-  function growBlobs(c, f) {
+  function growBlobs(c, f, speed) {
     var B = c.blobs;
     if (!B || !B.length) return;
     var dome = c.a.blob === 'dome';
     for (var k = B.length - 1; k >= 0; k--) {
       var b = B[k];
       var prev = b.r;
-      b.r += b.sp;
+      b.r += b.sp * speed;
       if (b.r > b.rMax) b.r = b.rMax;
       paintBand(c, f, b, prev, b.r, dome);
       if (b.r >= b.rMax) B.splice(k, 1);
@@ -367,7 +372,12 @@ PM.growth = (function () {
           var t = Math.sqrt(d2) / b.rMax;
           val = 238 - 150 * t * t
                 + (PM.rng.fbm(x / 2.6, y / 2.6, c.seed + 311, 2) - 0.5) * 26;
-          if (onLip && r1 >= b.rMax) val = 66;
+          // Тёмная кайма набирается по мере раздувания. Раньше она
+          // включалась на последнем тике и капля щёлкала в готовый вид.
+          if (onLip) {
+            var ripe = (r1 / b.rMax - 0.55) / 0.45;
+            if (ripe > 0) val += (66 - val) * (ripe > 1 ? 1 : ripe);
+          }
         } else {
           val = onLip ? 232 : 78;
         }
@@ -472,6 +482,13 @@ PM.growth = (function () {
 
     for (var k = 0; k < colonies.length; k++) {
       var c = colonies[k];
+
+      // Капли и вторичные очаги раздуваются постепенно и досматриваются до
+      // конца даже у колонии, которая уже перестала расти: иначе на чашке
+      // остаются пузыри, замершие на полпути.
+      if (c.blobs && c.blobs.length) growBlobs(c, f, speed);
+      if (c.waves && c.waves.length) growWaves(c, f, rnd, speed);
+
       if (!c.alive) continue;
       if (f.tick < c.delay) continue;          // спора ещё не проросла
       if (c.cells >= c.maxCells) {
@@ -488,7 +505,6 @@ PM.growth = (function () {
         growFrontier(c, f, rnd, budget);
       }
       if (c.a.useTips || c.tips.length) growTips(c, f, rnd, speed);
-      if (c.blobs && c.blobs.length) growBlobs(c, f);
 
       // сателлит — дочерний пузырь в стороне от материнской колонии
       if (c.a.bubbles && rnd() < c.satelliteChance && c.cells > 40) {
@@ -538,44 +554,72 @@ PM.growth = (function () {
   // Вторичный очаг внутри уже занятой территории: плотное пятно с обнулённым
   // возрастом — кольца спороношения идут по нему заново. Так выглядит зрелая
   // чашка: базовый газон и наросты поверх него.
+  // Очаг не штампуется целиком: он заводится как объект и расползается
+  // кольцами за сотню-другую тиков. Мгновенный штамп читался как вспышка
+  // готового пятна поверх газона.
   function secondaryWave(c, f, rnd) {
-    var F = c.frontier;
-    var pool = F.length ? F : null;
-    var i;
-    if (pool) i = pool[(rnd() * pool.length) | 0];
-    else i = Math.round(c.y) * f.W + Math.round(c.x);
+    if (!c.waves) c.waves = [];
+    if (c.waves.length > 6) return;
 
-    var W = f.W, H = f.H;
-    var cx = i % W, cy = (i / W) | 0;
+    var F = c.frontier;
+    var i = F.length ? F[(rnd() * F.length) | 0]
+                     : Math.round(c.y) * f.W + Math.round(c.x);
+    var cx = i % f.W, cy = (i / f.W) | 0;
     // сместиться вглубь территории, а не сидеть на кайме
     var ang = rnd() * TAU, off = rnd() * 26 * c.sc;
-    cx = Math.round(cx + Math.cos(ang) * off);
-    cy = Math.round(cy + Math.sin(ang) * off);
 
-    var r = (2 + rnd() * 6) * c.sc, ri = Math.ceil(r * 1.35);
-    var boost = 14 + rnd() * 22;
-    var cap = c.a.dens * c.tone + 62;                   // очаг не должен выбеливаться в пятно
-    var wob = rnd() * 1000;
-    for (var y = cy - ri; y <= cy + ri; y++) {
-      if (y < 1 || y >= H - 1) continue;
-      for (var x = cx - ri; x <= cx + ri; x++) {
-        if (x < 1 || x >= W - 1) continue;
-        var dx = x - cx, dy = y - cy;
-        var dd = Math.sqrt(dx * dx + dy * dy);
-        // край очага рваный, а не циркульный
-        var rr = r * (0.72 + 0.56 * PM.rng.fbm(
-          Math.cos(Math.atan2(dy, dx)) * 2.2 + wob,
-          Math.sin(Math.atan2(dy, dx)) * 2.2, c.seed + townHash(cx, cy), 2));
-        if (dd > rr) continue;
-        var j = y * W + x;
-        if (f.owner[j] !== c.id) continue;
-        if (f.tick - f.birth[j] < c.ringPeriod * 2) continue;   // только зрелый газон
-        var d = f.density[j] + boost;
-        f.density[j] = d > cap ? cap : d;
-        // возраст сбрасывается не в ноль, а вразнобой: кольца по очагу
-        // пойдут заново, но не сойдутся в правильный медальон
-        f.birth[j] = f.tick - ((rnd() * c.ringPeriod * 2.2) | 0);
+    c.waves.push({
+      x: Math.round(cx + Math.cos(ang) * off),
+      y: Math.round(cy + Math.sin(ang) * off),
+      r: 0, rMax: (2 + rnd() * 6) * c.sc,
+      sp: (0.010 + rnd() * 0.016) * c.sc,
+      boost: 14 + rnd() * 22,
+      wob: rnd() * 1000
+    });
+  }
+
+  // Прирастить очаг на кольцевую полосу (r0, r1]: за тик проступает только
+  // то, что расползлось. Рваный силуэт считается от финального радиуса,
+  // поэтому очаг раскрывается в свою форму, а не раздувается ровным кругом.
+  function growWaves(c, f, rnd, speed) {
+    var V = c.waves;
+    if (!V || !V.length) return;
+    var W = f.W, H = f.H;
+    var cap = c.a.dens * c.tone + 62;          // очаг не должен выбеливаться в пятно
+
+    for (var k = V.length - 1; k >= 0; k--) {
+      var v = V[k];
+      var r0 = v.r;
+      v.r += v.sp * speed;
+      if (v.r > v.rMax) v.r = v.rMax;
+
+      var cx = v.x, cy = v.y;
+      var ri = Math.ceil(v.r * 1.35) + 1;
+      var hash = c.seed + townHash(cx, cy);
+
+      for (var y = cy - ri; y <= cy + ri; y++) {
+        if (y < 1 || y >= H - 1) continue;
+        for (var x = cx - ri; x <= cx + ri; x++) {
+          if (x < 1 || x >= W - 1) continue;
+          var dx = x - cx, dy = y - cy;
+          var dd = Math.sqrt(dx * dx + dy * dy);
+          if (dd > v.r || dd <= r0) continue;              // только свежая полоса
+          var th = Math.atan2(dy, dx);
+          // край очага рваный, а не циркульный
+          var rr = v.rMax * (0.72 + 0.56 * PM.rng.fbm(
+            Math.cos(th) * 2.2 + v.wob, Math.sin(th) * 2.2, hash, 2));
+          if (dd > rr) continue;
+          var j = y * W + x;
+          if (f.owner[j] !== c.id) continue;
+          if (f.tick - f.birth[j] < c.ringPeriod * 2) continue;   // только зрелый газон
+          var d = f.density[j] + v.boost;
+          f.density[j] = d > cap ? cap : d;
+          // возраст сбрасывается не в ноль, а вразнобой: кольца по очагу
+          // пойдут заново, но не сойдутся в правильный медальон
+          f.birth[j] = f.tick - ((rnd() * c.ringPeriod * 2.2) | 0);
+        }
       }
+      if (v.r >= v.rMax) V.splice(k, 1);
     }
   }
 
@@ -671,8 +715,14 @@ PM.growth = (function () {
     return m + 1;
   }
 
+  // Чашка считается «живой», пока есть что дорисовывать: незакрытая капля
+  // или расползающийся очаг — тоже рост, симуляцию останавливать нельзя.
   function anyAlive(colonies) {
-    for (var i = 0; i < colonies.length; i++) if (colonies[i].alive) return true;
+    for (var i = 0; i < colonies.length; i++) {
+      var c = colonies[i];
+      if (c.alive || (c.blobs && c.blobs.length) ||
+          (c.waves && c.waves.length)) return true;
+    }
     return false;
   }
 

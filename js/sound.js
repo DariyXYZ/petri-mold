@@ -417,6 +417,19 @@ PM.sound = (function () {
       if (!due('seam', 900)) return;
       cloud({ freq: 180, q: 3, grains: 2, spread: 200, dur: 1.6,
               attack: 0.25, air: 0.8, gain: 0.1125, tonal: 0 }, panX, 1);
+    } else if (kind === 'fire') {
+      // Рёв: широкая шумовая полоса низко плюс воздушный слой сверху.
+      // Полосы, а не тона — у пламени нет высоты.
+      cloud({ freq: 150, q: 1.1, grains: 4, spread: 260, dur: 3.6,
+              attack: 0.4, air: 1.0, gain: 0.19, tonal: 0 }, 0, 1);
+      cloud({ freq: 900, q: 2.2, grains: 3, spread: 460, dur: 2.8,
+              attack: 0.55, air: 1.0, gain: 0.075, tonal: 0 }, 0, 1);
+    } else if (kind === 'crackle') {
+      // Треск сгоревшей плесени: одно очень короткое зерно высоко.
+      if (!due('fireCrackle', 70)) return;
+      cloud({ freq: 1500 + Math.random() * 2300, q: 15, grains: 1, spread: 40,
+              dur: 0.07, attack: 0.004, air: 1.0, gain: 0.05, tonal: 0 },
+            panX || 0, 1);
     } else if (kind === 'mature') {
       cloud({ freq: P.A2, q: 5, grains: 3, spread: 700, dur: 5.5,
               attack: 1.4, air: 0.6, gain: 0.1625 }, 0, 1);

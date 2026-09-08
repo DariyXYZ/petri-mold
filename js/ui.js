@@ -90,7 +90,7 @@ PM.ui = (function () {
       el('species').textContent = '';
     } else {
       var LABEL = { growing: 'growing', mature: 'maturing',
-                    paused: 'paused', done: 'done' };
+                    paused: 'paused', burning: 'burning off', done: 'done' };
       var count = {};
       api.getColonies().forEach(function (c) {
         count[c.archetype] = (count[c.archetype] || 0) + 1;
@@ -110,11 +110,16 @@ PM.ui = (function () {
     var s = el('start');
     s.disabled = !(st === 'inoculate' && pts > 0);
     s.textContent = st === 'inoculate' ? 'GROW'
-                  : (st === 'done' ? 'DONE' : 'GROWING…');
+                  : (st === 'done' ? 'DONE'
+                  : (st === 'burning' ? 'BURNING…' : 'GROWING…'));
 
     var p = el('pause');
     p.disabled = !(st === 'growing' || st === 'mature' || st === 'paused');
     p.textContent = st === 'paused' ? 'RESUME' : 'PAUSE';
+
+    // пока горит, повторное нажатие ничего не даёт — кнопка гаснет
+    var b = el('reseed');
+    if (b) b.disabled = (st === 'burning');
 
     var e = el('exp-val');
     if (e) e.textContent = api.exportSize();
@@ -190,8 +195,7 @@ PM.ui = (function () {
       api.togglePause();
     });
     el('reseed').addEventListener('click', function () {
-      PM.sound.ui('clean');
-      api.reseed();
+      api.burnClean();
     });
     el('save').addEventListener('click', api.exportPNG);
 
@@ -220,7 +224,7 @@ PM.ui = (function () {
         if (api.getState() === 'inoculate') api.start(); else api.togglePause();
       }
       if (e.key === 'p' || e.key === 'P') api.togglePause();
-      if (e.key === 'r' || e.key === 'R') api.reseed();
+      if (e.key === 'r' || e.key === 'R') api.burnClean();
       if (e.key === 'd' || e.key === 'D') setPanel(!panel.classList.contains('open'));
       if (e.key === 's' || e.key === 'S') api.exportPNG();
     });

@@ -10,7 +10,7 @@ PM.app = (function () {
   var seed = 12345;
   var speed = 3;
 
-  var state = 'inoculate';   // inoculate | growing | mature | paused | done
+  var state = 'inoculate';   // inoculate | growing | mature | paused | burning | done
   var resumeTo = 'growing';  // куда вернуться из паузы
   var exportScale = 4;       // во сколько раз крупнее буфера сохранять PNG
   var points = [], colonies = [], fields = null;
@@ -65,6 +65,7 @@ PM.app = (function () {
     lastCells = {};
     lastCount = 0;
     PM.sound.reset();
+    PM.burn.reset();
     if (!keepPoints) points = [];
     state = 'inoculate';
     bakeBackground();
@@ -117,10 +118,17 @@ PM.app = (function () {
   }
 
   // ---------- цикл ----------
+  function running() {
+    return state === 'growing' || state === 'mature' || state === 'burning';
+  }
+
   function loop() {
     if (raf) cancelAnimationFrame(raf);
     raf = requestAnimationFrame(function step() {
-      if (state === 'growing' || state === 'mature') {
+      if (state === 'burning') {
+        // Огонь идёт своим кадром: рост остановлен, чашка только выгорает.
+        PM.burn.step();
+      } else if (state === 'growing' || state === 'mature') {
         PM.growth.tick(fields, colonies, rnd,
                        state === 'mature' ? speed * 0.3 : speed);
 
@@ -132,7 +140,7 @@ PM.app = (function () {
         else if (fields.tick % 20 === 0) PM.ui.sync();
       }
       draw();
-      if (state === 'growing' || state === 'mature') raf = requestAnimationFrame(step);
+      if (running()) raf = requestAnimationFrame(step);
       else raf = null;
     });
   }
@@ -177,6 +185,7 @@ PM.app = (function () {
     if (fields) {
       if (colonies.length) PM.scene.overlay(lum, fields, colonies);
       if (state === 'inoculate') PM.scene.markers(lum, fields, points);
+      PM.burn.paint(lum);
     }
     PM.render.blit(lum, W, H, img);
     offCtx.putImageData(img, 0, 0);
@@ -213,6 +222,26 @@ PM.app = (function () {
   }
 
   function sameSeed() { newCulture(true); }
+
+  // Чашку не стирают — её выжигают. Огонь идёт снизу вверх, съедает плесень,
+  // и только когда сажа выветрится, засевается новая культура.
+  function burnClean() {
+    if (state === 'burning') return;
+    if (!colonies.length) { reseed(); return; }
+
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    for (var i = 0; i < colonies.length; i++) {
+      colonies[i].alive = false;
+      colonies[i].tips.length = 0;
+      if (colonies[i].blobs) colonies[i].blobs.length = 0;
+      if (colonies[i].waves) colonies[i].waves.length = 0;
+    }
+    state = 'burning';
+    PM.sound.event('fire');
+    PM.burn.start(fields, seed, function () { reseed(); });
+    PM.ui.sync();
+    loop();
+  }
 
   function togglePause() {
     if (state === 'growing' || state === 'mature') {
@@ -275,6 +304,7 @@ PM.app = (function () {
       MAX_SPORES: MAX_SPORES,
       reseed: reseed,
       togglePause: togglePause,
+      burnClean: burnClean,
       exportPNG: exportPNG,
       getExportScale: function () { return exportScale; },
       setExportScale: function (v) { exportScale = v; },
