@@ -1,39 +1,43 @@
 'use strict';
 
-// Печёт варианты анимации выжигания и складывает их в GIF для отбора.
+// Пишет анимацию выжигания в GIF, чтобы её можно было посмотреть покадрово,
+// не гоняя браузер.
 //
 //   node tools/bake-fire.js
 //
-// Считает офлайн честным решателем (tools/fluid-fire.js), рендерит через
-// настоящий конвейер проекта — та же чашка, та же палитра, тот же дизер, —
-// поэтому GIF показывает ровно то, что будет в игре.
+// Гоняется РОВНО тот модуль, что в игре (js/burn.js), поверх настоящей
+// выращенной чашки и через настоящую палитру с дизером, — поэтому GIF
+// показывает то, что будет на экране, а не отдельную офлайновую модель.
+// Варианты ниже правят только параметры PM.burn.P.
 //
-// Предпросмотр кладётся в tools/preview/. Параметры каждого варианта — там же
-// в variants.json, чтобы выбранный можно было запечь в игровой формат.
+// Предпросмотр кладётся в tools/preview/ (GIF в .gitignore, они большие),
+// параметры — рядом в variants.json.
 
 var fs = require('fs');
 var path = require('path');
 var vm = require('vm');
 var Gif = require('./gif.js').Gif;
-var FF = require('./fluid-fire.js');
 
 var ROOT = path.join(__dirname, '..');
 var OUT = path.join(__dirname, 'preview');
 
-// --- загрузка модулей проекта в общий контекст ---
+// --- модули проекта в общий контекст ---
 
 function loadPM() {
   var ctx = vm.createContext({ Math: Math, console: console,
     Float32Array: Float32Array, Uint8Array: Uint8Array, Uint16Array: Uint16Array,
     Object: Object, Array: Array, JSON: JSON, Date: Date });
   ['js/rng.js', 'js/palette.js', 'js/dish.js', 'js/fields.js',
-   'js/growth.js', 'js/scene.js'].forEach(function (f) {
-    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
+   'js/growth.js', 'js/scene.js', 'js/burn.js'].forEach(function (fl) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, fl), 'utf8'), ctx,
+                    { filename: fl });
   });
+  // burn.js подаёт треск в озвучку; здесь звука нет
+  ctx.PM.sound = { event: function () {} };
   return ctx.PM;
 }
 
-// --- чашка с плесенью: фон для предпросмотра ---
+// --- чашка с плесенью ---
 
 function growDish(PM, W, H, seed, ticks) {
   var rnd = PM.rng.mulberry32(seed);
@@ -41,8 +45,8 @@ function growDish(PM, W, H, seed, ticks) {
   f.seedBase = seed;
   var colonies = [];
   var plan = [
-    ['colony',    0.34, 0.36], ['speckle', 0.64, 0.34], ['dots', 0.48, 0.58],
-    ['crackle',   0.72, 0.64], ['target',  0.30, 0.68], ['starburst', 0.55, 0.80]
+    ['colony',  0.34, 0.36], ['speckle', 0.64, 0.34], ['dots',      0.48, 0.58],
+    ['crackle', 0.72, 0.64], ['target',  0.30, 0.68], ['starburst', 0.55, 0.80]
   ];
   for (var i = 0; i < plan.length; i++) {
     var c = PM.growth.makeColony(i + 1, Math.round(W * plan[i][1]),
@@ -52,107 +56,36 @@ function growDish(PM, W, H, seed, ticks) {
     colonies.push(c);
   }
   for (var t = 0; t < ticks; t++) PM.growth.tick(f, colonies, rnd, 3);
+  // рост остановлен: во время выжигания чашка уже не растёт
+  for (var k = 0; k < colonies.length; k++) {
+    var cc = colonies[k];
+    cc.alive = false; cc.tips.length = 0;
+    if (cc.blobs) cc.blobs.length = 0;
+    if (cc.waves) cc.waves.length = 0;
+  }
   return { fields: f, colonies: colonies };
 }
 
-// --- варианты ---
-//
-// dt = 1 кадр. frontBase/frontWob — ход кромки поджига в клетках сетки за
-// кадр (сетка вдвое грубее кадра, так что в пикселях выходит вдвое больше).
+// --- варианты: правки к PM.burn.P ---
 
 var VARIANTS = [
-  {
-    name: '1-even-sweep',
-    title: 'ровный отжиг',
-    note: 'низкая ровная стена пламени, слабый подъём, мало вихрей — ' +
-          'спокойное лабораторное выжигание',
-    frontBase: 0.55, frontWob: 0.40,
-    buoy: 1.6, vort: 1.4, iters: 24, dt: 1.0,
-    fuelBase: 0.35, fuelSwing: 0.55, patchScale: 9,
-    ignite: 0.95, burn: 0.22, tburn: 1.5, tcap: 1.15,
-    coolQ: 0.30, coolL: 0.16,
-    sootBase: 0.16, sootSwing: 0.5, sootHold: 0.997, sootFade: 0.92,
-    gain: [200, 130], grain: 0.34
-  },
-  {
-    name: '2-gusty',
-    title: 'порывистый',
-    note: 'языки заваливает набок, кромка рвётся на лопасти — ' +
-          'сильное завихрение при среднем подъёме',
-    frontBase: 0.62, frontWob: 0.55,
-    buoy: 2.4, vort: 4.5, iters: 28, dt: 1.0,
-    fuelBase: 0.22, fuelSwing: 0.85, patchScale: 13,
-    ignite: 1.05, burn: 0.20, tburn: 1.7, tcap: 1.2,
-    coolQ: 0.28, coolL: 0.13,
-    sootBase: 0.18, sootSwing: 0.55, sootHold: 0.9975, sootFade: 0.92,
-    gain: [215, 135], grain: 0.40
-  },
-  {
-    name: '3-firestorm',
-    title: 'шторм',
-    note: 'высокие грибовидные факелы, сильный подъём и завихрение — ' +
-          'самое зрелищное и самое «горячее»',
-    frontBase: 0.85, frontWob: 0.55,
-    buoy: 3.6, vort: 6.5, iters: 32, dt: 1.0,
-    fuelBase: 0.30, fuelSwing: 0.85, patchScale: 16,
-    ignite: 1.15, burn: 0.16, tburn: 2.1, tcap: 1.25,
-    coolQ: 0.24, coolL: 0.10,
-    sootBase: 0.22, sootSwing: 0.6, sootHold: 0.998, sootFade: 0.93,
-    gain: [230, 140], grain: 0.42
-  },
-  {
-    name: '4-smoulder',
-    title: 'тление',
-    note: 'почти без пламени: тёмный вал, редкие вспышки над колониями, ' +
-          'длинный сажевый след',
-    frontBase: 0.34, frontWob: 0.30,
-    buoy: 1.1, vort: 2.2, iters: 24, dt: 1.0,
-    fuelBase: 0.10, fuelSwing: 0.75, patchScale: 20,
-    ignite: 0.70, burn: 0.10, tburn: 1.1, tcap: 1.0,
-    coolQ: 0.34, coolL: 0.20,
-    sootBase: 0.30, sootSwing: 0.6, sootHold: 0.9992, sootFade: 0.95,
-    gain: [175, 120], grain: 0.30
-  },
-  {
-    name: '5-flashover',
-    title: 'вспышка',
-    note: 'кромка проходит чашку вдвое быстрее, разом яркая волна и ' +
-          'быстрое догорание',
-    frontBase: 1.35, frontWob: 0.60,
-    buoy: 3.0, vort: 5.0, iters: 28, dt: 1.0,
-    fuelBase: 0.45, fuelSwing: 0.65, patchScale: 11,
-    ignite: 1.2, burn: 0.30, tburn: 2.0, tcap: 1.25,
-    coolQ: 0.30, coolL: 0.15,
-    sootBase: 0.20, sootSwing: 0.55, sootHold: 0.996, sootFade: 0.90,
-    gain: [235, 145], grain: 0.38
-  }
+  { name: 'crest', title: 'гребень', note: 'то, что стоит в игре', over: {} },
+  { name: 'low',   title: 'низкий',
+    note: 'языки ниже и чаще, лента толще — совсем спокойное выжигание',
+    over: { hMain: 12, hTeeth: 5, lMain: 8, ribbon: 9, base: 8 } },
+  { name: 'tall',  title: 'высокий',
+    note: 'редкие высокие языки, лента тоньше',
+    over: { hMain: 26, hTeeth: 7, lMain: 15, ribbon: 6, base: 6, sharp: 2.6 } }
 ];
-
-// --- билинейный подъём поля симуляции в разрешение кадра ---
-
-function upsample(dst, src, sw, sh, W, H) {
-  var kx = (sw - 1) / (W - 1), ky = (sh - 1) / (H - 1);
-  for (var y = 0; y < H; y++) {
-    var sy = y * ky;
-    var iy = sy | 0; if (iy > sh - 2) iy = sh - 2;
-    var fy = sy - iy;
-    var r0 = iy * sw, r1 = r0 + sw;
-    for (var x = 0; x < W; x++) {
-      var sx = x * kx;
-      var ix = sx | 0; if (ix > sw - 2) ix = sw - 2;
-      var fx = sx - ix;
-      dst[y * W + x] =
-          src[r0 + ix] * (1 - fx) * (1 - fy) + src[r0 + ix + 1] * fx * (1 - fy)
-        + src[r1 + ix] * (1 - fx) * fy + src[r1 + ix + 1] * fx * fy;
-    }
-  }
-}
 
 // --- один вариант ---
 
 function bake(PM, o, cfg) {
   var W = o.W, H = o.H, n = W * H;
-  var SW = W >> 1, SH = (H >> 1) + 1;
+
+  var base = {};
+  Object.keys(PM.burn.P).forEach(function (k) { base[k] = PM.burn.P[k]; });
+  Object.keys(cfg.over).forEach(function (k) { PM.burn.P[k] = cfg.over[k]; });
 
   var dish = growDish(PM, W, H, o.seed, o.ticks);
   var f = dish.fields, colonies = dish.colonies;
@@ -160,83 +93,52 @@ function bake(PM, o, cfg) {
   var bg = new Float32Array(n);
   PM.dish.paint(bg, W, H, o.seed, PM.dish.GEO);
 
-  var sim = FF.makeSim(Object.assign({
-    W: SW, H: SH, radius: PM.dish.GEO.rAgar * PM.dish.GEO.rOuter * W * 0.5,
-    seed: o.seed
-  }, cfg));
-
-  var T = new Float32Array(n), soot = new Float32Array(n);
   var lum = new Float32Array(n);
   var idx = new Uint8Array(n);
-
   var BAYER = PM.palette.BAYER4;
   var LUT = PM.palette.table();
   var OFF = PM.palette.LUT_OFF, LMAX = PM.palette.LUT_N - 1;
   var amp = o.dither;
-  var g0 = cfg.gain[0], g1 = cfg.gain[1], grain = cfg.grain;
 
   var gif = new Gif(W, H, PM.palette.ramp().map(function (c) {
     return [c.r, c.g, c.b];
   }));
 
-  var frames = 0, tail = 0;
-  for (var step = 0; step < o.maxFrames; step++) {
-    FF.stepSim(sim);
+  var frames = 0, steps = 0;
+  PM.burn.start(f, o.seed, function () {});
 
-    // Плесень выгорает по кромке поджига — ровно так же, как в игре.
-    for (var x = 0; x < W; x++) {
-      var fy = sim.front[x >> 1] * 2;
-      for (var y = Math.max(0, Math.floor(fy)); y < H; y++) {
-        var i = y * W + x;
-        if (!f.mask[i] || (!f.owner[i] && !f.film[i])) continue;
-        f.owner[i] = 0; f.density[i] = 0; f.film[i] = 0; f.texSet[i] = 0;
-      }
-    }
-
-    if (step % o.every) continue;
-
-    upsample(T, sim.T, SW, SH, W, H);
-    upsample(soot, sim.soot, SW, SH, W, H);
+  while (PM.burn.isActive() && steps < o.maxSteps) {
+    PM.burn.step();
+    steps++;
+    if (steps % o.every) continue;
 
     lum.set(bg);
     PM.scene.overlay(lum, f, colonies);
+    PM.burn.paint(lum);
 
-    for (var q = 0; q < n; q++) {
-      var s = soot[q], h = T[q];
-      if (!s && !h) continue;
-      var l = lum[q];
-      if (s > 0.004) l = l * (1 - s) + 5 * s;
-      if (h > 0.004) {
-        if (h > 1) h = 1;
-        var gn = FF.fbm2(q % W / 3.6, ((q / W) | 0) / 3.6 - step * 0.55,
-                         o.seed + 17, 2);
-        l += (h * h * g0 + h * g1) * (1 - grain * 0.5 + grain * gn);
-      }
-      lum[q] = l > 255 ? 255 : l;
-    }
-
-    for (var y2 = 0; y2 < H; y2++) {
-      for (var x2 = 0; x2 < W; x2++) {
-        var i2 = y2 * W + x2;
-        var lv = lum[i2];
-        if (lv <= 1) { idx[i2] = 0; continue; }
-        var hh = (Math.imul(x2 + 1, 374761393) ^ Math.imul(y2 + 1, 668265263)) >>> 0;
-        hh = (Math.imul(hh ^ (hh >>> 13), 1274126177) >>> 0) / 4294967296;
-        lv += ((BAYER[(y2 & 3) * 4 + (x2 & 3)] / 16 - 0.46875) * 0.72
-               + (hh - 0.5) * 0.55) * amp;
-        var qq = (lv + OFF) | 0;
-        if (qq < 0) qq = 0; else if (qq > LMAX) qq = LMAX;
-        idx[i2] = LUT[qq];
+    for (var y = 0; y < H; y++) {
+      for (var x = 0; x < W; x++) {
+        var i = y * W + x;
+        var lv = lum[i];
+        if (lv <= 1) { idx[i] = 0; continue; }
+        var h = (Math.imul(x + 1, 374761393) ^ Math.imul(y + 1, 668265263)) >>> 0;
+        h = (Math.imul(h ^ (h >>> 13), 1274126177) >>> 0) / 4294967296;
+        lv += ((BAYER[(y & 3) * 4 + (x & 3)] / 16 - 0.46875) * 0.72
+               + (h - 0.5) * 0.55) * amp;
+        var q = (lv + OFF) | 0;
+        if (q < 0) q = 0; else if (q > LMAX) q = LMAX;
+        idx[i] = LUT[q];
       }
     }
-
     gif.frame(idx, o.every * 1000 / 60);
     frames++;
-
-    if (!sim.burning) { tail++; if (tail > o.tailFrames) break; }
   }
 
-  return { gif: gif.buffer(), frames: frames, simSteps: sim.frame };
+  var snapshot = {};
+  Object.keys(PM.burn.P).forEach(function (k) { snapshot[k] = PM.burn.P[k]; });
+  Object.keys(base).forEach(function (k) { PM.burn.P[k] = base[k]; });
+
+  return { gif: gif.buffer(), frames: frames, steps: steps, params: snapshot };
 }
 
 // --- прогон ---
@@ -247,7 +149,7 @@ function main() {
 
   var o = {
     W: 380, H: 389, seed: 424242, ticks: 4200,
-    dither: PM.palette.autoAmp(), every: 2, maxFrames: 460, tailFrames: 26
+    dither: PM.palette.autoAmp(), every: 2, maxSteps: 600
   };
 
   if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
@@ -257,19 +159,19 @@ function main() {
     var cfg = VARIANTS[i];
     var t0 = Date.now();
     var r = bake(PM, o, cfg);
-    var file = path.join(OUT, 'fire-' + cfg.name + '.gif');
+    var file = path.join(OUT, 'burn-' + cfg.name + '.gif');
     fs.writeFileSync(file, r.gif);
     var kb = (r.gif.length / 1024).toFixed(0);
-    console.log(cfg.name.padEnd(14) + ' ' + String(r.frames).padStart(3) +
-                ' кадров  ' + String(r.simSteps).padStart(3) + ' шагов  ' +
-                kb.padStart(5) + ' КБ  ' +
-                ((Date.now() - t0) / 1000).toFixed(1) + ' с');
+    console.log(cfg.name.padEnd(8) + String(r.frames).padStart(4) + ' кадров  ' +
+                String(r.steps).padStart(4) + ' шагов  ' +
+                (r.steps / 60).toFixed(1) + ' с  ' + kb.padStart(5) + ' КБ  ' +
+                ((Date.now() - t0) / 1000).toFixed(1) + ' с расчёта');
     report.push({
       name: cfg.name, title: cfg.title, note: cfg.note,
       gif: path.relative(ROOT, file).replace(/\\/g, '/'),
-      frames: r.frames, simSteps: r.simSteps,
-      seconds: +(r.simSteps / 60).toFixed(2),
-      sizeKB: +kb, params: cfg
+      frames: r.frames, steps: r.steps,
+      seconds: +(r.steps / 60).toFixed(2), sizeKB: +kb,
+      over: cfg.over, params: r.params
     });
   }
 
