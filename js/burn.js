@@ -5,16 +5,18 @@ var PM = PM || {};
 // квантует наложение в палитру игры и добавляет дизер.
 PM.burn = (function () {
   var f = null, W = 0, H = 0, seed = 0;
-  var soot = null, cleaned = null;
+  var soot = null, burned = null, burnAt = null;
   var active = false, done = null, t = 0;
   var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
   var fireImage = null, fireCanvas = null, fireCtx = null, firePixels = null;
   var cachedImage = null, fireReady = false;
 
   var TOTAL_FRAMES = 180; // 3 секунды при 60 fps
-  var IGNITE_END = 12;
-  var TRAVEL_END = 154;
-  var SPRITE_W = 96, SPRITE_H = 124;
+  var IGNITE_END = 34;
+  var TRAVEL_END = 150;
+  // GIF намеренно растянут по вертикали: факел входит снизу и проходит через
+  // почти всю чашку, как в референсном композе, а не мелькает у её края.
+  var SPRITE_W = 110, SPRITE_H = 290;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function smooth(v) { return v * v * (3 - 2 * v); }
@@ -44,7 +46,8 @@ PM.burn = (function () {
   function start(fields, cultureSeed, onDone) {
     f = fields; W = f.W; H = f.H; seed = ((cultureSeed | 0) ^ 0x5f37) >>> 0;
     soot = new Float32Array(f.n);
-    cleaned = new Uint8Array(W);
+    burned = new Uint8Array(f.n);
+    burnAt = new Float32Array(f.n);
     topY = H; botY = 0; leftX = W; rightX = 0;
     for (var y = 0; y < H; y++) {
       for (var x = 0, row = y * W; x < W; x++) {
@@ -55,6 +58,18 @@ PM.burn = (function () {
         if (x > rightX) rightX = x;
       }
     }
+    // У каждого пикселя свой момент выгорания. Поле зафиксировано на время
+    // одного BURN, поэтому чёрный след не дрожит, но его граница распадается
+    // на мягкие шумные языки вместо прямой вертикальной линии.
+    for (var yy = topY; yy <= botY; yy++) {
+      for (var xx = leftX; xx <= rightX; xx++) {
+        var pi = yy * W + xx;
+        if (!f.mask[pi]) continue;
+        var coarse = PM.rng.fbm(xx / 19, yy / 27, seed + 1709, 3) - 0.5;
+        var fine = PM.rng.fbm(xx / 6, yy / 8, seed + 3011, 2) - 0.5;
+        burnAt[pi] = xx + coarse * 44 + fine * 12;
+      }
+    }
     sweepX = leftX - SPRITE_W * 0.35;
     t = 0; active = true; done = onDone || null;
     makeSprite();
@@ -62,22 +77,23 @@ PM.burn = (function () {
 
   function reset() {
     active = false; done = null; f = null;
-    soot = cleaned = fireImage = fireCanvas = fireCtx = firePixels = null;
+    soot = burned = burnAt = fireImage = fireCanvas = fireCtx = firePixels = null;
     fireReady = false;
   }
 
   function clearBehindFlame() {
-    // Точка очистки спрятана внутри спрайта: след появляется только за огнём.
-    var cut = sweepX - SPRITE_W * 0.16;
-    for (var x = leftX; x <= rightX; x++) {
-      if (cleaned[x] || x > cut) continue;
-      cleaned[x] = 1;
-      for (var y = topY; y <= botY; y++) {
+    // Точка очистки спрятана внутри факела: перед ней биомасса нетронута,
+    // сразу за ней — угольный отпечаток. burnAt добавляет размытый шумный край.
+    var cut = sweepX - SPRITE_W * 0.08;
+    for (var y = topY; y <= botY; y++) {
+      for (var x = leftX; x <= rightX; x++) {
         var i = y * W + x;
+        if (burned[i] || burnAt[i] > cut) continue;
         if (!f.mask[i]) continue;
+        burned[i] = 1;
         var mold = f.owner[i] ? Math.min(1, f.density[i] / 210) : (f.film[i] > 40 ? 0.4 : 0);
-        soot[i] = 0.28 + mold * 0.24 + (hash(x, y, seed + 213) - 0.5) * 0.18;
-        if (soot[i] < 0.09) soot[i] = 0.09;
+        soot[i] = 0.22 + mold * 0.25 + (hash(x, y, seed + 213) - 0.5) * 0.22;
+        if (soot[i] < 0.05) soot[i] = 0.05;
         f.owner[i] = 0; f.density[i] = 0; f.film[i] = 0; f.texSet[i] = 0;
       }
     }
@@ -122,12 +138,12 @@ PM.burn = (function () {
     var inT = smooth(clamp(t / IGNITE_END, 0, 1));
     var outT = 1 - smooth(clamp((t - TRAVEL_END) / (TOTAL_FRAMES - TRAVEL_END), 0, 1));
     var alpha = inT * outT;
-    var scale = 0.68 + inT * 0.32;
+    var scale = 0.12 + inT * 0.88;
     var drawW = Math.round(SPRITE_W * scale), drawH = Math.round(SPRITE_H * scale);
     var ox = Math.round(sweepX - drawW * 0.5);
     // Спрайт растёт за нижней кромкой чашки и поэтому кажется, что пламя идёт
     // из-под экрана, а не возникает внутри агаровой поверхности.
-    var oy = Math.round(botY + 18 - drawH);
+    var oy = Math.round(botY + 38 - drawH);
 
     for (var sy = 0; sy < SPRITE_H; sy++) {
       var dy = oy + Math.floor(sy * drawH / SPRITE_H);
