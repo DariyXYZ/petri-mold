@@ -8,7 +8,7 @@ PM.burn = (function () {
   var active = false, done = null, t = 0, lastStepAt = 0;
   var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
   var fire = null, cachedImage = null;
-  var TOTAL_FRAMES = 360, IGNITE_END = 18, TRAVEL_END = 306;
+  var TOTAL_FRAMES = 240, IGNITE_END = 12, TRAVEL_END = 204;
   var SPRITE_W = 366, SPRITE_H = 391;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
