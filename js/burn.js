@@ -47,7 +47,7 @@ PM.burn = (function () {
       var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
       ash[i] = clean[i] * (0.92 - biomass * 0.78);
     }
-    drawH = (bottom - top) * 1.5;
+    drawH = (bottom - top) * 1.35;
     drawW = drawH * SW / SH;
     front = left - 40;
     preload();
