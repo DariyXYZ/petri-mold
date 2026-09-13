@@ -1,123 +1,108 @@
 var PM = PM || {};
 
-// The supplied GIF stays a native image so the browser advances its frames.
-// Canvas code handles only the charred residue left behind the visible flame.
+// All 13 original GIF frames, at their original 40 ms cadence. Rendering them
+// in the dish buffer shares its mask, pixel size, palette and dithering.
 PM.burn = (function () {
-  var f = null, W = 0, H = 0, seed = 0;
-  var soot = null, burned = null, burnAt = null;
-  var active = false, done = null, t = 0, lastStepAt = 0;
-  var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
-  var fire = null, cachedImage = null;
-  var TOTAL_FRAMES = 240, RECOVER_START = 198;
-  var SPRITE_W = 366, SPRITE_H = 391;
+  var f, snapshot, clean, ash, edge, cleared;
+  var active = false, done, started = null, elapsed = 0;
+  var atlas, pixels, ready, front = 0;
+  var SW = 366, SH = 391, COUNT = 13;
+  var DURATION = 4000, EXIT = 3400;
+  var left, right, bottom, drawW, drawH;
+  function clamp(v) { return Math.max(0, Math.min(1, v)); }
+  function smooth(v) { v = clamp(v); return v * v * (3 - 2 * v); }
 
-  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
-  function smooth(v) { return v * v * (3 - 2 * v); }
-  function hash(x, y, s) {
-    var h = s ^ Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
-    h = Math.imul(h ^ (h >>> 13), 1274126177);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  }
-  function flameElement() {
-    if (!fire) fire = document.getElementById('burn-gif');
-    return fire;
-  }
-  function restartGif() {
-    var el = flameElement();
-    if (!el) return;
-    el.style.display = 'none';
-    el.removeAttribute('src');
-    requestAnimationFrame(function () {
-      el.src = 'assets/kostyor-19.gif';
-      el.style.display = 'block';
+  function preload() {
+    if (ready) return ready;
+    ready = new Promise(function (resolve) {
+      atlas = new Image();
+      atlas.onload = function () {
+        var c = document.createElement('canvas');
+        c.width = SW * COUNT; c.height = SH;
+        var ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(atlas, 0, 0);
+        pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+        resolve();
+      };
+      atlas.onerror = function () { ready = null; resolve(); };
+      atlas.src = 'assets/fire-frames.png';
     });
+    return ready;
   }
-  function start(fields, cultureSeed, onDone) {
-    f = fields; W = f.W; H = f.H; seed = ((cultureSeed | 0) ^ 0x5f37) >>> 0;
-    soot = new Float32Array(f.n); burned = new Uint8Array(f.n); burnAt = new Float32Array(f.n);
-    topY = H; botY = 0; leftX = W; rightX = 0;
-    for (var y = 0; y < H; y++) for (var x = 0, row = y * W; x < W; x++) {
-      if (!f.mask[row + x]) continue;
-      if (y < topY) topY = y;
-      if (y > botY) botY = y;
-      if (x < leftX) leftX = x;
-      if (x > rightX) rightX = x;
+
+  function start(fields, seed, callback, scene, background) {
+    f = fields; done = callback; active = true; started = null; elapsed = 0;
+    snapshot = new Float32Array(scene); clean = new Float32Array(background);
+    ash = new Float32Array(f.n); edge = new Float32Array(f.n);
+    cleared = new Uint8Array(f.n);
+    left = f.W; right = 0; bottom = 0;
+    var top = f.H;
+    for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
+      var i = y * f.W + x;
+      if (!f.mask[i]) continue;
+      left = Math.min(left, x); right = Math.max(right, x);
+      bottom = Math.max(bottom, y); top = Math.min(top, y);
+      edge[i] = (PM.rng.fbm(x / 16, y / 22, seed + 1709, 3) - 0.5) * 22;
+      // Capture the actual visible colony texture before changing its fields.
+      var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
+      ash[i] = clean[i] * (0.92 - biomass * 0.78);
     }
-    for (var yy = topY; yy <= botY; yy++) for (var xx = leftX; xx <= rightX; xx++) {
-      var pi = yy * W + xx;
-      if (!f.mask[pi]) continue;
-      var broad = PM.rng.fbm(xx / 24, yy / 31, seed + 1709, 3) - 0.5;
-      var detail = PM.rng.fbm(xx / 8, yy / 10, seed + 3011, 2) - 0.5;
-      burnAt[pi] = xx + broad * 34 + detail * 8;
-    }
-    // The flame enters through the left rim, already visible inside the dish.
-    sweepX = leftX + SPRITE_W * 0.23;
-    t = 0; lastStepAt = 0; active = true; done = onDone || null;
-    restartGif();
+    drawH = (bottom - top) * 1.5;
+    drawW = drawH * SW / SH;
+    front = left - 40;
+    preload();
   }
-  function hideFire() {
-    var el = flameElement();
-    if (!el) return;
-    el.style.display = 'none'; el.style.opacity = '0';
-  }
-  function reset() {
-    active = false; done = null; f = null;
-    soot = burned = burnAt = null; lastStepAt = 0;
-    hideFire();
-  }
-  function clearBehindFlame() {
-    // The clearing front lives inside the flame, and reaches past the right rim.
-    var cut = sweepX + SPRITE_W * 0.18;
-    for (var y = topY; y <= botY; y++) for (var x = leftX; x <= rightX; x++) {
-      var i = y * W + x;
-      if (burned[i] || !f.mask[i] || burnAt[i] > cut) continue;
-      burned[i] = 1;
-      var mold = f.owner[i] ? Math.min(1, f.density[i] / 210) : (f.film[i] > 40 ? 0.4 : 0);
-      soot[i] = Math.max(0.05, 0.22 + mold * 0.25 + (hash(x, y, seed + 213) - 0.5) * 0.16);
-      f.owner[i] = 0; f.density[i] = 0; f.film[i] = 0; f.texSet[i] = 0;
-    }
-  }
+
   function step() {
     if (!active) return;
-    var now = Date.now();
-    var dt = lastStepAt ? (now - lastStepAt) / (1000 / 60) : 1;
-    lastStepAt = now; t += clamp(dt, 0.25, 4);
-    var travel = smooth(clamp(t / TOTAL_FRAMES, 0, 1));
-    sweepX = leftX + SPRITE_W * 0.23 + (rightX - leftX + SPRITE_W * 0.52) * travel;
-    clearBehindFlame();
-    if ((Math.floor(t) % 3) === 0 && t < RECOVER_START) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
-    if (t >= TOTAL_FRAMES) { var cb = done; reset(); if (cb) cb(); }
+    if (!pixels) {
+      // A failed asset must not strand the UI in BURNING.
+      if (!ready) { var fail = done; reset(); if (fail) fail(); }
+      return;
+    }
+    var now = performance.now();
+    if (started === null) started = now;
+    elapsed = now - started;
+    front = left - 40 + (right - left + drawW * 0.5 + 40) * clamp(elapsed / EXIT);
+    for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
+      var i = y * f.W + x;
+      if (!f.mask[i] || cleared[i] || x + edge[i] > front - 8) continue;
+      cleared[i] = 1;
+      f.owner[i] = f.density[i] = f.film[i] = f.texSet[i] = 0;
+    }
+    if (elapsed >= DURATION) { var cb = done; reset(); if (cb) cb(); }
   }
+
   function paint(lum) {
-    if (!active || !f) return;
-    // Ash holds while the flame crosses the dish, then melts softly back into
-    // a clean, empty starting dish during the outgoing movement.
-    var ash = 1 - smooth(clamp((t - RECOVER_START) / (TOTAL_FRAMES - RECOVER_START), 0, 1));
-    for (var i = 0; i < soot.length; i++) if (soot[i]) {
-      var amount = soot[i] * ash;
-      lum[i] = lum[i] * (1 - amount) + 2 * amount;
+    if (!active) return;
+    var recover = smooth((elapsed - EXIT) / (DURATION - EXIT));
+    var frame = Math.floor(elapsed / 40) % COUNT;
+    var ox = front - drawW * 0.5;
+    // Hide the source's straight lower edge below the circular agar boundary.
+    var oy = bottom + 24 - drawH;
+    for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
+      var i = y * f.W + x;
+      if (!f.mask[i]) continue;
+      var burned = smooth((front - 8 - x - edge[i]) / 14);
+      var residue = ash[i] * (1 - recover) + clean[i] * recover;
+      lum[i] = snapshot[i] * (1 - burned) + residue * burned;
+      if (!pixels) continue;
+      var sx = Math.floor((x - ox) / drawW * SW);
+      var sy = Math.floor((y - oy) / drawH * SH);
+      if (sx < 0 || sx >= SW || sy < 0 || sy >= SH) continue;
+      var p = (sy * SW * COUNT + frame * SW + sx) * 4;
+      var light = (pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114) / 255;
+      var coverage = smooth(light / 0.3);
+      // Match the dish grain; retain highlights without clipping to solid white.
+      var grain = (PM.palette.BAYER4[(y & 3) * 4 + (x & 3)] / 16 - 0.46875) * 24;
+      var tone = 205 * Math.pow(light, 0.85) + grain;
+      lum[i] = lum[i] * (1 - coverage) + tone * coverage;
     }
   }
-  function present(stage) {
-    var el = flameElement();
-    if (!el || !active || !stage) { hideFire(); return; }
-    var rect = stage.getBoundingClientRect();
-    // Slightly smaller, entirely inside the dish, with the source aspect ratio
-    // intact. Entry and exit are created by x movement, never by opacity.
-    var drawW = SPRITE_W * 0.78, drawH = SPRITE_H * 0.78;
-    var ox = sweepX - drawW * 0.5;
-    var oy = botY - 14 - drawH;
-    el.style.left = (rect.left + ox / W * rect.width) + 'px';
-    el.style.top = (rect.top + oy / H * rect.height) + 'px';
-    el.style.width = (drawW / W * rect.width) + 'px';
-    el.style.height = (drawH / H * rect.height) + 'px';
-    el.style.opacity = '0.78';
-    el.style.display = 'block';
+  function reset() {
+    active = false; done = null; started = null;
+    f = snapshot = clean = ash = edge = cleared = null;
   }
-  return { start: start, step: step, paint: paint, present: present, reset: reset,
-    isActive: function () { return active; },
-    preload: function () {
-      if (cachedImage) return;
-      cachedImage = new Image(); cachedImage.src = 'assets/kostyor-19.gif';
-    } };
+  return { start: start, step: step, paint: paint, reset: reset,
+    preload: preload, isActive: function () { return active; } };
 })();
