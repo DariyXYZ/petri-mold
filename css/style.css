@@ -28,7 +28,7 @@ html, body {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   mix-blend-mode: screen;
-  filter: grayscale(1) contrast(1.34) brightness(1.6);
+  filter: grayscale(1) contrast(1.12) brightness(1.05);
   transform-origin: center bottom;
 }
 /* пока расставляют споры, роль курсора играет крупный пинцет (js/cursor.js) */

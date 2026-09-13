@@ -8,7 +8,7 @@ PM.burn = (function () {
   var active = false, done = null, t = 0, lastStepAt = 0;
   var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
   var fire = null, cachedImage = null;
-  var TOTAL_FRAMES = 240, IGNITE_END = 12, TRAVEL_END = 204;
+  var TOTAL_FRAMES = 240, RECOVER_START = 198;
   var SPRITE_W = 366, SPRITE_H = 391;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
@@ -50,8 +50,8 @@ PM.burn = (function () {
       var detail = PM.rng.fbm(xx / 8, yy / 10, seed + 3011, 2) - 0.5;
       burnAt[pi] = xx + broad * 34 + detail * 8;
     }
-    // First frame is at the left rim; no travel through empty space.
-    sweepX = leftX + 4;
+    // The flame enters through the left rim, already visible inside the dish.
+    sweepX = leftX + SPRITE_W * 0.23;
     t = 0; lastStepAt = 0; active = true; done = onDone || null;
     restartGif();
   }
@@ -66,7 +66,8 @@ PM.burn = (function () {
     hideFire();
   }
   function clearBehindFlame() {
-    var cut = sweepX - SPRITE_W * 0.12;
+    // The clearing front lives inside the flame, and reaches past the right rim.
+    var cut = sweepX + SPRITE_W * 0.18;
     for (var y = topY; y <= botY; y++) for (var x = leftX; x <= rightX; x++) {
       var i = y * W + x;
       if (burned[i] || !f.mask[i] || burnAt[i] > cut) continue;
@@ -81,30 +82,36 @@ PM.burn = (function () {
     var now = Date.now();
     var dt = lastStepAt ? (now - lastStepAt) / (1000 / 60) : 1;
     lastStepAt = now; t += clamp(dt, 0.25, 4);
-    var travel = smooth(clamp((t - IGNITE_END) / (TRAVEL_END - IGNITE_END), 0, 1));
-    sweepX = leftX + 4 + (rightX - leftX - 8) * travel;
+    var travel = smooth(clamp(t / TOTAL_FRAMES, 0, 1));
+    sweepX = leftX + SPRITE_W * 0.23 + (rightX - leftX + SPRITE_W * 0.52) * travel;
     clearBehindFlame();
-    if ((Math.floor(t) % 3) === 0 && t < TRAVEL_END) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
+    if ((Math.floor(t) % 3) === 0 && t < RECOVER_START) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
     if (t >= TOTAL_FRAMES) { var cb = done; reset(); if (cb) cb(); }
   }
   function paint(lum) {
     if (!active || !f) return;
-    for (var i = 0; i < soot.length; i++) if (soot[i]) lum[i] = lum[i] * (1 - soot[i]) + 2 * soot[i];
+    // Ash holds while the flame crosses the dish, then melts softly back into
+    // a clean, empty starting dish during the outgoing movement.
+    var ash = 1 - smooth(clamp((t - RECOVER_START) / (TOTAL_FRAMES - RECOVER_START), 0, 1));
+    for (var i = 0; i < soot.length; i++) if (soot[i]) {
+      var amount = soot[i] * ash;
+      lum[i] = lum[i] * (1 - amount) + 2 * amount;
+    }
   }
   function present(stage) {
     var el = flameElement();
     if (!el || !active || !stage) { hideFire(); return; }
     var rect = stage.getBoundingClientRect();
-    var inT = smooth(clamp(t / IGNITE_END, 0, 1));
-    var outT = 1 - smooth(clamp((t - TRAVEL_END) / (TOTAL_FRAMES - TRAVEL_END), 0, 1));
-    // Native 366:391 GIF ratio: full height reaches beyond the upper dish rim.
-    var ox = sweepX - SPRITE_W * 0.5;
-    var oy = botY + 4 - SPRITE_H;
+    // Slightly smaller, entirely inside the dish, with the source aspect ratio
+    // intact. Entry and exit are created by x movement, never by opacity.
+    var drawW = SPRITE_W * 0.78, drawH = SPRITE_H * 0.78;
+    var ox = sweepX - drawW * 0.5;
+    var oy = botY - 14 - drawH;
     el.style.left = (rect.left + ox / W * rect.width) + 'px';
     el.style.top = (rect.top + oy / H * rect.height) + 'px';
-    el.style.width = (SPRITE_W / W * rect.width) + 'px';
-    el.style.height = (SPRITE_H / H * rect.height) + 'px';
-    el.style.opacity = String(0.96 * inT * outT);
+    el.style.width = (drawW / W * rect.width) + 'px';
+    el.style.height = (drawH / H * rect.height) + 'px';
+    el.style.opacity = '0.78';
     el.style.display = 'block';
   }
   return { start: start, step: step, paint: paint, present: present, reset: reset,
