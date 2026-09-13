@@ -193,6 +193,7 @@ PM.app = (function () {
     PM.render.blit(lum, W, H, img);
     offCtx.putImageData(img, 0, 0);
     PM.render.present(ctx, off, W, H, dw, dh);
+    PM.burn.present(canvas);
     if (state === 'inoculate') labelSpores();
   }
 

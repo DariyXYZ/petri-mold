@@ -18,6 +18,19 @@ html, body {
   image-rendering: crisp-edges;
   touch-action: none;
 }
+
+/* The GIF stays native: its black background disappears, its animation remains. */
+#burn-gif {
+  position: fixed;
+  z-index: 12;
+  display: none;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  mix-blend-mode: screen;
+  filter: grayscale(1) contrast(1.34) brightness(1.6);
+  transform-origin: center bottom;
+}
 /* пока расставляют споры, роль курсора играет крупный пинцет (js/cursor.js) */
 #stage.has-tool { cursor: none; }
 body.running #stage.has-tool { cursor: crosshair; }

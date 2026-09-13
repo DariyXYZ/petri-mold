@@ -1,183 +1,116 @@
 var PM = PM || {};
 
-// Выжигание использует исходный GIF kostyor-19 напрямую. Мы не имитируем форму
-// пламени: браузер проигрывает все его кадры, а затем существующий render.js
-// квантует наложение в палитру игры и добавляет дизер.
+// The supplied GIF stays a native image so the browser advances its frames.
+// Canvas code handles only the charred residue left behind the visible flame.
 PM.burn = (function () {
   var f = null, W = 0, H = 0, seed = 0;
   var soot = null, burned = null, burnAt = null;
   var active = false, done = null, t = 0, lastStepAt = 0;
   var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
-  var fireImage = null, fireCanvas = null, fireCtx = null, firePixels = null;
-  var cachedImage = null, fireReady = false;
-
-  var TOTAL_FRAMES = 540; // 9 секунд при 60 fps — втрое медленнее прежнего
-  var IGNITE_END = 102;
-  var TRAVEL_END = 450;
-  // Это собственное соотношение сторон GIF (366×391), без сжатия по ширине.
-  // Крупный кадр даёт факелу дойти от нижнего края до верха чашки.
+  var fire = null, cachedImage = null;
+  var TOTAL_FRAMES = 360, IGNITE_END = 18, TRAVEL_END = 306;
   var SPRITE_W = 366, SPRITE_H = 391;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function smooth(v) { return v * v * (3 - 2 * v); }
-
   function hash(x, y, s) {
     var h = s ^ Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
-
-  function makeSprite() {
-    // Новый Image на каждый BURN перезапускает зацикленный GIF с первого кадра.
-    // URL не получает cache-buster: ранее из-за него GIF снова скачивался уже
-    // после BURN, и весь трёхсекундный эффект мог закончиться до первого кадра.
-    fireImage = new Image();
-    fireReady = false;
-    fireImage.onload = function () { fireReady = true; };
-    fireImage.src = 'assets/kostyor-19.gif';
-    if (fireImage.complete && fireImage.naturalWidth) fireReady = true;
-    fireCanvas = document.createElement('canvas');
-    fireCanvas.width = SPRITE_W; fireCanvas.height = SPRITE_H;
-    fireCtx = fireCanvas.getContext('2d', { willReadFrequently: true });
-    fireCtx.imageSmoothingEnabled = false;
-    firePixels = null;
+  function flameElement() {
+    if (!fire) fire = document.getElementById('burn-gif');
+    return fire;
   }
-
+  function restartGif() {
+    var el = flameElement();
+    if (!el) return;
+    el.style.display = 'none';
+    el.removeAttribute('src');
+    requestAnimationFrame(function () {
+      el.src = 'assets/kostyor-19.gif';
+      el.style.display = 'block';
+    });
+  }
   function start(fields, cultureSeed, onDone) {
     f = fields; W = f.W; H = f.H; seed = ((cultureSeed | 0) ^ 0x5f37) >>> 0;
-    soot = new Float32Array(f.n);
-    burned = new Uint8Array(f.n);
-    burnAt = new Float32Array(f.n);
+    soot = new Float32Array(f.n); burned = new Uint8Array(f.n); burnAt = new Float32Array(f.n);
     topY = H; botY = 0; leftX = W; rightX = 0;
-    for (var y = 0; y < H; y++) {
-      for (var x = 0, row = y * W; x < W; x++) {
-        if (!f.mask[row + x]) continue;
-        if (y < topY) topY = y;
-        if (y > botY) botY = y;
-        if (x < leftX) leftX = x;
-        if (x > rightX) rightX = x;
-      }
+    for (var y = 0; y < H; y++) for (var x = 0, row = y * W; x < W; x++) {
+      if (!f.mask[row + x]) continue;
+      if (y < topY) topY = y;
+      if (y > botY) botY = y;
+      if (x < leftX) leftX = x;
+      if (x > rightX) rightX = x;
     }
-    // У каждого пикселя свой момент выгорания. Поле зафиксировано на время
-    // одного BURN, поэтому чёрный след не дрожит, но его граница распадается
-    // на мягкие шумные языки вместо прямой вертикальной линии.
-    for (var yy = topY; yy <= botY; yy++) {
-      for (var xx = leftX; xx <= rightX; xx++) {
-        var pi = yy * W + xx;
-        if (!f.mask[pi]) continue;
-        var coarse = PM.rng.fbm(xx / 19, yy / 27, seed + 1709, 3) - 0.5;
-        var fine = PM.rng.fbm(xx / 6, yy / 8, seed + 3011, 2) - 0.5;
-        burnAt[pi] = xx + coarse * 44 + fine * 12;
-      }
+    for (var yy = topY; yy <= botY; yy++) for (var xx = leftX; xx <= rightX; xx++) {
+      var pi = yy * W + xx;
+      if (!f.mask[pi]) continue;
+      var broad = PM.rng.fbm(xx / 24, yy / 31, seed + 1709, 3) - 0.5;
+      var detail = PM.rng.fbm(xx / 8, yy / 10, seed + 3011, 2) - 0.5;
+      burnAt[pi] = xx + broad * 34 + detail * 8;
     }
-    sweepX = leftX - SPRITE_W * 0.35;
+    // First frame is at the left rim; no travel through empty space.
+    sweepX = leftX + 4;
     t = 0; lastStepAt = 0; active = true; done = onDone || null;
-    makeSprite();
+    restartGif();
   }
-
+  function hideFire() {
+    var el = flameElement();
+    if (!el) return;
+    el.style.display = 'none'; el.style.opacity = '0';
+  }
   function reset() {
     active = false; done = null; f = null;
-    soot = burned = burnAt = fireImage = fireCanvas = fireCtx = firePixels = null;
-    fireReady = false; lastStepAt = 0;
+    soot = burned = burnAt = null; lastStepAt = 0;
+    hideFire();
   }
-
   function clearBehindFlame() {
-    // Точка очистки спрятана внутри факела: перед ней биомасса нетронута,
-    // сразу за ней — угольный отпечаток. burnAt добавляет размытый шумный край.
-    var cut = sweepX - SPRITE_W * 0.08;
-    for (var y = topY; y <= botY; y++) {
-      for (var x = leftX; x <= rightX; x++) {
-        var i = y * W + x;
-        if (burned[i] || burnAt[i] > cut) continue;
-        if (!f.mask[i]) continue;
-        burned[i] = 1;
-        var mold = f.owner[i] ? Math.min(1, f.density[i] / 210) : (f.film[i] > 40 ? 0.4 : 0);
-        soot[i] = 0.22 + mold * 0.25 + (hash(x, y, seed + 213) - 0.5) * 0.22;
-        if (soot[i] < 0.05) soot[i] = 0.05;
-        f.owner[i] = 0; f.density[i] = 0; f.film[i] = 0; f.texSet[i] = 0;
-      }
+    var cut = sweepX - SPRITE_W * 0.12;
+    for (var y = topY; y <= botY; y++) for (var x = leftX; x <= rightX; x++) {
+      var i = y * W + x;
+      if (burned[i] || !f.mask[i] || burnAt[i] > cut) continue;
+      burned[i] = 1;
+      var mold = f.owner[i] ? Math.min(1, f.density[i] / 210) : (f.film[i] > 40 ? 0.4 : 0);
+      soot[i] = Math.max(0.05, 0.22 + mold * 0.25 + (hash(x, y, seed + 213) - 0.5) * 0.16);
+      f.owner[i] = 0; f.density[i] = 0; f.film[i] = 0; f.texSet[i] = 0;
     }
   }
-
   function step() {
     if (!active) return;
-    // Не начинаем отсчёт до готовности GIF: зритель всегда увидит вспышку,
-    // даже при первом открытии страницы и холодном кеше браузера.
-    if (!fireReady) return;
-    // Реальное время вместо «один rAF = один кадр»: размер GIF может снижать
-    // FPS, но длительность BURN всё равно остаётся девятью секундами.
     var now = Date.now();
     var dt = lastStepAt ? (now - lastStepAt) / (1000 / 60) : 1;
-    lastStepAt = now;
-    t += clamp(dt, 0.25, 4);
+    lastStepAt = now; t += clamp(dt, 0.25, 4);
     var travel = smooth(clamp((t - IGNITE_END) / (TRAVEL_END - IGNITE_END), 0, 1));
-    sweepX = leftX - SPRITE_W * 0.35 + (rightX - leftX + SPRITE_W * 0.7) * travel;
+    sweepX = leftX + 4 + (rightX - leftX - 8) * travel;
     clearBehindFlame();
     if ((Math.floor(t) % 3) === 0 && t < TRAVEL_END) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
-
-    if (t >= TOTAL_FRAMES) {
-      var cb = done;
-      reset();
-      if (cb) cb();
-    }
+    if (t >= TOTAL_FRAMES) { var cb = done; reset(); if (cb) cb(); }
   }
-
-  function readGifFrame() {
-    if (!fireImage || !fireImage.complete || !fireImage.naturalWidth) return false;
-    fireCtx.clearRect(0, 0, SPRITE_W, SPRITE_H);
-    fireCtx.drawImage(fireImage, 0, 0, SPRITE_W, SPRITE_H);
-    firePixels = fireCtx.getImageData(0, 0, SPRITE_W, SPRITE_H).data;
-    return true;
-  }
-
   function paint(lum) {
     if (!active || !f) return;
-    for (var i = 0; i < soot.length; i++) {
-      if (soot[i]) lum[i] = lum[i] * (1 - soot[i]) + 2 * soot[i];
-    }
-    if (!readGifFrame()) return;
-
-    // Вспышка приходит из нижней границы, затем факел держит полную силу и
-    // последние 90 кадров плавно растворяется. Масштаб в начале добавляет
-    // ощущение поджига, не обрезая сам GIF.
+    for (var i = 0; i < soot.length; i++) if (soot[i]) lum[i] = lum[i] * (1 - soot[i]) + 2 * soot[i];
+  }
+  function present(stage) {
+    var el = flameElement();
+    if (!el || !active || !stage) { hideFire(); return; }
+    var rect = stage.getBoundingClientRect();
     var inT = smooth(clamp(t / IGNITE_END, 0, 1));
     var outT = 1 - smooth(clamp((t - TRAVEL_END) / (TOTAL_FRAMES - TRAVEL_END), 0, 1));
-    var alpha = inT * outT;
-    var scale = 0.12 + inT * 0.88;
-    var drawW = Math.round(SPRITE_W * scale), drawH = Math.round(SPRITE_H * scale);
-    var ox = Math.round(sweepX - drawW * 0.5);
-    // Спрайт растёт за нижней кромкой чашки и поэтому кажется, что пламя идёт
-    // из-под экрана, а не возникает внутри агаровой поверхности.
-    var oy = Math.round(botY + 38 - drawH);
-
-    for (var sy = 0; sy < SPRITE_H; sy++) {
-      var dy = oy + Math.floor(sy * drawH / SPRITE_H);
-      if (dy < 0 || dy >= H) continue;
-      for (var sx = 0; sx < SPRITE_W; sx++) {
-        var si = (sy * SPRITE_W + sx) << 2;
-        var r = firePixels[si], g = firePixels[si + 1], b = firePixels[si + 2];
-        // У исходного GIF чёрный фон: порог извлекает только настоящий огонь.
-        var light = Math.max(r, g, b);
-        if (light < 14) continue;
-        var dx = ox + Math.floor(sx * drawW / SPRITE_W);
-        if (dx < 0 || dx >= W) continue;
-        var di = dy * W + dx;
-        if (!f.mask[di]) continue;
-        // Убираем выбитую в белый колонну: сам GIF остаётся узнаваемым, но
-        // его горячее ядро ограничено серым уровнем и разбито шумом палитры.
-        var grain = 0.72 + hash(sx, sy + t * 13, seed + 911) * 0.28;
-        var k = alpha * (0.16 + 0.52 * Math.pow(light / 255, 1.05)) * grain;
-        var level = Math.min(205, 34 + light * 0.68) * grain;
-        lum[di] = lum[di] * (1 - k) + level * k;
-      }
-    }
+    // Native 366:391 GIF ratio: full height reaches beyond the upper dish rim.
+    var ox = sweepX - SPRITE_W * 0.5;
+    var oy = botY + 4 - SPRITE_H;
+    el.style.left = (rect.left + ox / W * rect.width) + 'px';
+    el.style.top = (rect.top + oy / H * rect.height) + 'px';
+    el.style.width = (SPRITE_W / W * rect.width) + 'px';
+    el.style.height = (SPRITE_H / H * rect.height) + 'px';
+    el.style.opacity = String(0.96 * inT * outT);
+    el.style.display = 'block';
   }
-
-  return { start: start, step: step, paint: paint, reset: reset,
+  return { start: start, step: step, paint: paint, present: present, reset: reset,
     isActive: function () { return active; },
     preload: function () {
       if (cachedImage) return;
-      cachedImage = new Image();
-      cachedImage.src = 'assets/kostyor-19.gif';
+      cachedImage = new Image(); cachedImage.src = 'assets/kostyor-19.gif';
     } };
 })();
