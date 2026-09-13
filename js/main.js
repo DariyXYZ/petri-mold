@@ -7,6 +7,7 @@ PM.app = (function () {
 
   var MAX_SPORES = 8;
   var MATURE_AT = 7000;    // тик, после которого рост заметно замедляется
+  var DISH_SEED = 12345;   // фон чашки не зависит от seed культуры — вид всегда один
   var seed = 12345;
   var speed = 3;
 
@@ -50,9 +51,11 @@ PM.app = (function () {
     canvas.style.height = Math.floor(H * css) + 'px';
   }
 
-  // Фон рисуем один раз и держим копию — агар и обод не меняются
+  // Фон рисуем один раз и держим копию — агар и обод не меняются.
+  // Сид фиксированный (не seed культуры), иначе чашка перерисовывается
+  // по-новому на каждый RESET/BURN.
   function bakeBackground() {
-    PM.dish.paint(bg, W, H, seed, PM.dish.GEO);
+    PM.dish.paint(bg, W, H, DISH_SEED, PM.dish.GEO);
   }
 
   // ---------- культура ----------
@@ -223,11 +226,11 @@ PM.app = (function () {
 
   function sameSeed() { newCulture(true); }
 
-  // Чашку не стирают — её выжигают. Огонь идёт снизу вверх, съедает плесень,
-  // и только когда сажа выветрится, засевается новая культура.
+  // Чашку не стирают — её выжигают. После огня остаётся тот же seed и тот же
+  // агар: меняется только культура, которую посетитель засевает заново.
   function burnClean() {
     if (state === 'burning') return;
-    if (!colonies.length) { reseed(); return; }
+    if (!colonies.length) { newCulture(false); return; }
 
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     for (var i = 0; i < colonies.length; i++) {
@@ -238,7 +241,7 @@ PM.app = (function () {
     }
     state = 'burning';
     PM.sound.event('fire');
-    PM.burn.start(fields, seed, function () { reseed(); });
+    PM.burn.start(fields, seed, function () { newCulture(false); });
     PM.ui.sync();
     loop();
   }
@@ -291,6 +294,7 @@ PM.app = (function () {
     if (h) seed = parseInt(h[1], 10);
 
     allocate();
+    PM.burn.preload();
     fitDisplay();
 
     canvas.addEventListener('click', function (ev) {
