@@ -230,7 +230,6 @@ PM.app = (function () {
   // агар: меняется только культура, которую посетитель засевает заново.
   function burnClean() {
     if (state === 'burning') return;
-    if (!colonies.length) { newCulture(false); return; }
 
     if (raf) { cancelAnimationFrame(raf); raf = null; }
     for (var i = 0; i < colonies.length; i++) {

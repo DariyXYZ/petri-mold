@@ -6,17 +6,17 @@ var PM = PM || {};
 PM.burn = (function () {
   var f = null, W = 0, H = 0, seed = 0;
   var soot = null, burned = null, burnAt = null;
-  var active = false, done = null, t = 0;
+  var active = false, done = null, t = 0, lastStepAt = 0;
   var topY = 0, botY = 0, leftX = 0, rightX = 0, sweepX = 0;
   var fireImage = null, fireCanvas = null, fireCtx = null, firePixels = null;
   var cachedImage = null, fireReady = false;
 
-  var TOTAL_FRAMES = 180; // 3 секунды при 60 fps
-  var IGNITE_END = 34;
-  var TRAVEL_END = 150;
-  // GIF намеренно растянут по вертикали: факел входит снизу и проходит через
-  // почти всю чашку, как в референсном композе, а не мелькает у её края.
-  var SPRITE_W = 110, SPRITE_H = 290;
+  var TOTAL_FRAMES = 540; // 9 секунд при 60 fps — втрое медленнее прежнего
+  var IGNITE_END = 102;
+  var TRAVEL_END = 450;
+  // Это собственное соотношение сторон GIF (366×391), без сжатия по ширине.
+  // Крупный кадр даёт факелу дойти от нижнего края до верха чашки.
+  var SPRITE_W = 366, SPRITE_H = 391;
 
   function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
   function smooth(v) { return v * v * (3 - 2 * v); }
@@ -71,14 +71,14 @@ PM.burn = (function () {
       }
     }
     sweepX = leftX - SPRITE_W * 0.35;
-    t = 0; active = true; done = onDone || null;
+    t = 0; lastStepAt = 0; active = true; done = onDone || null;
     makeSprite();
   }
 
   function reset() {
     active = false; done = null; f = null;
     soot = burned = burnAt = fireImage = fireCanvas = fireCtx = firePixels = null;
-    fireReady = false;
+    fireReady = false; lastStepAt = 0;
   }
 
   function clearBehindFlame() {
@@ -104,11 +104,16 @@ PM.burn = (function () {
     // Не начинаем отсчёт до готовности GIF: зритель всегда увидит вспышку,
     // даже при первом открытии страницы и холодном кеше браузера.
     if (!fireReady) return;
-    t++;
+    // Реальное время вместо «один rAF = один кадр»: размер GIF может снижать
+    // FPS, но длительность BURN всё равно остаётся девятью секундами.
+    var now = Date.now();
+    var dt = lastStepAt ? (now - lastStepAt) / (1000 / 60) : 1;
+    lastStepAt = now;
+    t += clamp(dt, 0.25, 4);
     var travel = smooth(clamp((t - IGNITE_END) / (TRAVEL_END - IGNITE_END), 0, 1));
     sweepX = leftX - SPRITE_W * 0.35 + (rightX - leftX + SPRITE_W * 0.7) * travel;
     clearBehindFlame();
-    if (t % 3 === 0 && t < TRAVEL_END) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
+    if ((Math.floor(t) % 3) === 0 && t < TRAVEL_END) PM.sound.event('crackle', null, (Math.random() - 0.5) * 1.2);
 
     if (t >= TOTAL_FRAMES) {
       var cb = done;
@@ -133,7 +138,7 @@ PM.burn = (function () {
     if (!readGifFrame()) return;
 
     // Вспышка приходит из нижней границы, затем факел держит полную силу и
-    // последние 26 кадров плавно растворяется. Масштаб в начале добавляет
+    // последние 90 кадров плавно растворяется. Масштаб в начале добавляет
     // ощущение поджига, не обрезая сам GIF.
     var inT = smooth(clamp(t / IGNITE_END, 0, 1));
     var outT = 1 - smooth(clamp((t - TRAVEL_END) / (TOTAL_FRAMES - TRAVEL_END), 0, 1));
@@ -158,8 +163,11 @@ PM.burn = (function () {
         if (dx < 0 || dx >= W) continue;
         var di = dy * W + dx;
         if (!f.mask[di]) continue;
-        var k = alpha * Math.pow(light / 255, 0.72);
-        var level = 44 + light * 0.83;
+        // Убираем выбитую в белый колонну: сам GIF остаётся узнаваемым, но
+        // его горячее ядро ограничено серым уровнем и разбито шумом палитры.
+        var grain = 0.72 + hash(sx, sy + t * 13, seed + 911) * 0.28;
+        var k = alpha * (0.16 + 0.52 * Math.pow(light / 255, 1.05)) * grain;
+        var level = Math.min(205, 34 + light * 0.68) * grain;
         lum[di] = lum[di] * (1 - k) + level * k;
       }
     }
