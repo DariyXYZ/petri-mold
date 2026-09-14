@@ -10,7 +10,7 @@ PM.fields = (function () {
       W: W, H: H, n: n, scale: scale,
       mask: PM.dish.agarMask(W, H, geo),   // 1 = внутри агара
       owner: new Uint8Array(n),            // 0 = пусто, иначе id колонии
-      birth: new Uint16Array(n),           // тик заселения
+      birth: new Uint32Array(n),           // тик заселения
       density: new Uint8Array(n),          // 0..255 плотность биомассы
       film: new Uint8Array(n),             // полупрозрачная плёнка, поверх owner
       nutrient: new Float32Array(n),

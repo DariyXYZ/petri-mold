@@ -44,13 +44,13 @@ PM.sound = (function () {
     roe:      { freq: P.C5, q: 18, grains: 4, spread: 110, dur: 0.4, attack: 0.02,
                 air: 1.0,  gain: 0.0562, every: 300 },
     // ветвление: короткий сухой треск дерева
-    dendrite: { freq: P.G3, q: 7,  grains: 3, spread: 180, dur: 0.7, attack: 0.01,
+    dendrite: { freq: P.G3, q: 7,  grains: 3, spread: 180, dur: 0.7, attack: 0.035,
                 air: 1.0,  gain: 0.0875, every: 480 },
     // кольцо-призрак: длинный низкий выдох
     crater:   { freq: P.A1, q: 4,  grains: 2, spread: 700, dur: 5.0, attack: 1.2,
                 air: 0.55, gain: 0.2125, every: 2000 },
     // трещины: сухой деревянный треск, а не шорох
-    crackle:  { freq: P.D3, q: 11, grains: 4, spread: 170, dur: 0.5, attack: 0.008,
+    crackle:  { freq: P.D3, q: 11, grains: 4, spread: 170, dur: 0.5, attack: 0.025,
                 air: 0.9,  gain: 0.0625, every: 420 },
     // крап: мягкий шелест с опорой на ноту
     speckle:  { freq: P.C4, q: 12, grains: 3, spread: 320, dur: 0.9, attack: 0.14,
@@ -64,7 +64,8 @@ PM.sound = (function () {
 
   var ctx = null, master = null, revb = null, wet = null;
   var noiseBuf = null, drones = {}, last = {};
-  var live = 0, MAX_VOICES = 16;
+  var live = 0, MAX_VOICES = 12;
+  var activeGrains = new Set();
   var enabled = true, started = false;    // включён сразу, ждём только жеста
   var volume = 1.0, density = 1.0;
 
@@ -86,7 +87,7 @@ PM.sound = (function () {
     // восстановления, поэтому нечему «дышать» на всплесках.
     var shaper = ctx.createWaveShaper();
     shaper.curve = softCurve(2.4);
-    shaper.oversample = '4x';
+    shaper.oversample = '2x';
 
     // страховочный лимитер, почти всегда бездействует
     var lim = ctx.createDynamicsCompressor();
@@ -100,7 +101,7 @@ PM.sound = (function () {
     // и перестаёт царапать. Резкий верх — половина ощущения дешёвой синтетики.
     var lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = 6000;
+    lp.frequency.value = 3200;
     lp.Q.value = 0.4;
 
     var hp = ctx.createBiquadFilter();
@@ -114,9 +115,9 @@ PM.sound = (function () {
     // Долгий реверб — главный носитель «атмосферы». Импульс с предзадержкой:
     // сначала тишина, потом хвост, отчего появляется ощущение помещения.
     revb = ctx.createConvolver();
-    revb.buffer = impulse(5.2, 2.1, 0.03);
+    revb.buffer = impulse(1.6, 2.5, 0.015);
     wet = ctx.createGain();
-    wet.gain.value = 0.32;
+    wet.gain.value = 0.16;
     revb.connect(wet); wet.connect(master);
 
     noiseBuf = noise(2.5);
@@ -168,7 +169,7 @@ PM.sound = (function () {
     var v = 0;
     for (var i = 0; i < raw.length; i++) {
       // окрашенный шум: ближе к воздуху, чем к белому шипению
-      v = v * 0.28 + (Math.random() * 2 - 1) * 0.72;
+      v = v * 0.72 + (Math.random() * 2 - 1) * 0.28;
       raw[i] = v;
     }
 
@@ -210,9 +211,9 @@ PM.sound = (function () {
   // Резонанс и даёт «материал» — стекло, дерево, воду.
   function grain(v, freq, x, mul, when) {
     if (!slot()) return;
-    var t = ctx.currentTime + (when || 0);
+    var t = ctx.currentTime + 0.012 + (when || 0);
     var dur = v.dur * (0.75 + Math.random() * 0.5);
-    var att = Math.max(0.004, v.attack * (0.7 + Math.random() * 0.6));
+    var att = Math.min(dur * 0.45, Math.max(0.004, v.attack * (0.7 + Math.random() * 0.6)));
 
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
@@ -252,25 +253,32 @@ PM.sound = (function () {
       osc.start(t); osc.stop(t + dur + 0.05);
     }
 
-    var tail = out(g, x, 0.4);
+    var tail = out(g, x, 0.22);
+    var voice = { gain: g, sources: osc ? [src, osc] : [src] };
+    activeGrains.add(voice);
     src.start(t);
     src.stop(t + dur + 0.06);
-    src.onended = function () { freeSlot(); detach(tail); };
+    src.onended = function () {
+      freeSlot(); detach(tail); activeGrains.delete(voice);
+      src.disconnect(); bp.disconnect(); airG.disconnect(); g.disconnect();
+      if (osc) { osc.disconnect(); og.disconnect(); }
+    };
   }
 
   // Облако зёрен: разброс по времени, высоте и панораме. Именно он превращает
   // одиночный пик в атмосферное событие.
   function cloud(v, x, mul) {
     var steps = [0, 3, 7, 10, 12];       // ступени той же пентатоники
-    var count = v.grains || 3;
+    var count = Math.min(v.grains || 3, MAX_VOICES - live);
+    if (count <= 0) return;
     for (var i = 0; i < count; i++) {
       var semi = v.arp ? steps[i % steps.length]
                        : (Math.random() < 0.45 ? steps[(Math.random() * 3) | 0] : 0);
       var f = v.tonal === 0
         ? v.freq * (0.8 + Math.random() * 0.5)
         : v.freq * Math.pow(2, semi / 12);
-      var when = (v.arp ? i / count : Math.random()) * v.spread / 1000;
-      grain(v, f, x + (Math.random() - 0.5) * 0.5, mul * (i ? 0.7 : 1), when);
+      var when = i === 0 ? 0 : (v.arp ? i / count : Math.random()) * Math.min(v.spread, 180) / 1000;
+      grain(v, f, x + (Math.random() - 0.5) * 0.5, mul * (i ? 0.7 : 1) / Math.sqrt(count), when);
     }
   }
 
@@ -282,7 +290,7 @@ PM.sound = (function () {
     var t = ctx.currentTime;
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.045, t + 8);
+    g.gain.linearRampToValueAtTime(0.012, t + 8);
 
     var f = P.A1;
     for (var i = 0; i < 3; i++) {
@@ -309,7 +317,7 @@ PM.sound = (function () {
     lfo.start(t);
 
     var ng = ctx.createGain();
-    ng.gain.value = 0.5;
+    ng.gain.value = 0.08;
     src.connect(lp); lp.connect(ng); ng.connect(g);
     src.start(t);
 
@@ -318,11 +326,21 @@ PM.sound = (function () {
   }
 
   function speciesDrone(name, v, x) {
-    if (drones[name]) return;
     var t = ctx.currentTime;
+    if (drones[name]) {
+      var existing = drones[name].gain.gain;
+      if (existing.cancelAndHoldAtTime) existing.cancelAndHoldAtTime(t);
+      else { existing.cancelScheduledValues(t); existing.setValueAtTime(existing.value, t); }
+      existing.linearRampToValueAtTime(v.gain, t + 0.12);
+      existing.setValueAtTime(v.gain, t + 0.3);
+      existing.linearRampToValueAtTime(0, t + 1.0);
+      return;
+    }
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(v.gain, t + 6);
+    g.gain.linearRampToValueAtTime(v.gain, t + 0.12);
+    g.gain.setValueAtTime(v.gain, t + 0.3);
+    g.gain.linearRampToValueAtTime(0, t + 1.0);
 
     var nodes = [];
     for (var i = 0; i < 2; i++) {
@@ -365,7 +383,7 @@ PM.sound = (function () {
 
   function due(key, ms) {
     var now = ctx.currentTime * 1000;
-    if (last[key] && now - last[key] < ms) return false;
+    if (last[key] !== undefined && now - last[key] < ms) return false;
     last[key] = now;
     return true;
   }
@@ -387,22 +405,23 @@ PM.sound = (function () {
 
     return {
       freq: v.freq * Math.pow(2, semi / 12),
-      q: v.q, spread: v.spread * len, dur: v.dur * len,
+      q: v.q, spread: Math.min(150, v.spread * len), dur: Math.min(2.2, v.dur * len),
       attack: v.attack * (len > 1 ? len * 0.8 : 1),
-      air: v.air, tonal: v.tonal, rise: v.rise, arp: v.arp,
+      air: v.air * 0.32, tonal: v.tonal, rise: v.rise, arp: v.arp,
       gain: v.gain * weight,
-      grains: Math.max(1, (v.grains || 3) + grains)
+      grains: Math.max(1, Math.min(3, (v.grains || 3) + grains))
     };
   }
 
   function growth(c, delta, panX) {
-    if (!enabled || !ctx || delta <= 0) return;
+    if (!enabled || !ctx || ctx.state !== 'running' || delta <= 0 || live >= MAX_VOICES - 2) return;
     var v = VOICE[c.archetype];
     if (!v) return;
     if (v.drone) { speciesDrone(c.archetype, v, panX); return; }
 
     var every = v.every / (density * Math.min(2.4, 1 + delta * 0.04));
-    if (!due(c.archetype, every)) return;
+    if (!due(c.archetype, Math.max(220, every))) return;
+    if (!due('growth-budget', 85)) return;
     cloud(byScale(v, c), panX, Math.min(1.3, 0.55 + delta * 0.02));
   }
 
@@ -420,9 +439,9 @@ PM.sound = (function () {
     } else if (kind === 'fire') {
       // Рёв: широкая шумовая полоса низко плюс воздушный слой сверху.
       // Полосы, а не тона — у пламени нет высоты.
-      cloud({ freq: 150, q: 1.1, grains: 4, spread: 260, dur: 3.6,
+      cloud({ freq: 150, q: 1.1, grains: 3, spread: 180, dur: 2.8,
               attack: 0.4, air: 1.0, gain: 0.19, tonal: 0 }, 0, 1);
-      cloud({ freq: 900, q: 2.2, grains: 3, spread: 460, dur: 2.8,
+      cloud({ freq: 900, q: 2.2, grains: 2, spread: 140, dur: 2.3,
               attack: 0.55, air: 1.0, gain: 0.075, tonal: 0 }, 0, 1);
     } else if (kind === 'crackle') {
       // Треск сгоревшей плесени: одно очень короткое зерно высоко.
@@ -481,6 +500,7 @@ PM.sound = (function () {
   function setEnabled(on) {
     enabled = on;
     if (!on) {
+      reset();
       if (ctx) {
         master.gain.cancelScheduledValues(ctx.currentTime);
         master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
@@ -493,7 +513,17 @@ PM.sound = (function () {
     master.gain.linearRampToValueAtTime(volume, ctx.currentTime + 1.2);
   }
 
-  function reset() { fadeDrones(); last = {}; }
+  function reset() {
+    fadeDrones(); last = {};
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    activeGrains.forEach(function (v) {
+      if (v.gain.gain.cancelAndHoldAtTime) v.gain.gain.cancelAndHoldAtTime(t);
+      else { v.gain.gain.cancelScheduledValues(t); v.gain.gain.setValueAtTime(v.gain.gain.value, t); }
+      v.gain.gain.linearRampToValueAtTime(0, t + 0.08);
+      v.sources.forEach(function (source) { try { source.stop(t + 0.1); } catch (e) {} });
+    });
+  }
 
   // Браузер не даёт создать звук без жеста пользователя, поэтому контекст
   // поднимается на первом же касании страницы, а не по тумблеру.

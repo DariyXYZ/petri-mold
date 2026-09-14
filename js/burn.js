@@ -7,7 +7,7 @@ PM.burn = (function () {
   var active = false, done, started = null, elapsed = 0;
   var atlas, pixels, ready, front = 0;
   var SW = 366, SH = 391, COUNT = 13;
-  var DURATION = 4000, EXIT = 3400;
+  var DURATION = 3500, EXIT = 2900;
   var left, right, bottom, drawW, drawH;
   var overlay, overlayCtx, overlayLum, overlayImage, overlayAlpha;
   var progress = 0;
@@ -44,10 +44,11 @@ PM.burn = (function () {
       if (!f.mask[i]) continue;
       left = Math.min(left, x); right = Math.max(right, x);
       bottom = Math.max(bottom, y); top = Math.min(top, y);
-      edge[i] = (PM.rng.fbm(x / 16, y / 22, seed + 1709, 3) - 0.5) * 22;
+      edge[i] = (PM.rng.fbm(x / 25, y / 34, seed + 1709, 3) - 0.5) * 48
+        + (PM.rng.fbm(x / 7, y / 9, seed + 1823, 2) - 0.5) * 14;
       // Capture the actual visible colony texture before changing its fields.
       var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
-      ash[i] = clean[i] * (0.92 - biomass * 0.78);
+      ash[i] = clean[i] * (1 - biomass * 0.85);
     }
     drawH = (bottom - top) * 1.35;
     drawW = drawH * SW / SH;
@@ -84,7 +85,7 @@ PM.burn = (function () {
     for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
       var i = y * f.W + x;
       if (!f.mask[i]) continue;
-      var burned = smooth((front - 8 - x - edge[i]) / 14);
+      var burned = smooth((front + 12 - x - edge[i]) / 42);
       var residue = ash[i] * (1 - recover) + clean[i] * recover;
       lum[i] = snapshot[i] * (1 - burned) + residue * burned;
     }

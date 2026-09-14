@@ -127,11 +127,20 @@ PM.app = (function () {
 
   function loop() {
     if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(function step() {
+    var lastFrame = null, accumulated = 0;
+    raf = requestAnimationFrame(function step(now) {
+      var dt = lastFrame === null ? 1000 / 60 : Math.max(0, now - lastFrame);
+      lastFrame = now;
+      accumulated = Math.min(1000 / 30, accumulated + dt);
+      if (state !== 'burning' && accumulated + 0.001 < 1000 / 60) {
+        raf = requestAnimationFrame(step);
+        return;
+      }
       if (state === 'burning') {
         // Огонь идёт своим кадром: рост остановлен, чашка только выгорает.
         PM.burn.step();
       } else if (state === 'growing' || state === 'mature') {
+        accumulated = Math.max(0, accumulated - 1000 / 60);
         PM.growth.tick(fields, colonies, rnd,
                        state === 'mature' ? speed * 0.3 : speed);
 
@@ -139,7 +148,7 @@ PM.app = (function () {
 
         if (state === 'growing' && fields.tick > MATURE_AT) {
           state = 'mature'; PM.sound.event('mature'); PM.ui.sync();
-        } else if (!PM.growth.anyAlive(colonies)) { state = 'done'; PM.ui.sync(); }
+        } else if (!PM.growth.anyAlive(colonies)) { state = 'done'; PM.sound.reset(); PM.ui.sync(); }
         else if (fields.tick % 20 === 0) PM.ui.sync();
       }
       draw();
@@ -151,7 +160,6 @@ PM.app = (function () {
   // Прирост за кадр — это и есть «голос» колонии: чем быстрее растёт, тем чаще
   // подаёт звук. Панорама берётся из её положения в чашке.
   function voiceGrowth() {
-    if (!PM.sound.isEnabled()) return;
 
     // Голос принадлежит ВИДУ, а не колонии: колоний бывает больше сотни, и
     // если каждая подаёт сигнал отдельно, пул голосов упирается в потолок и
@@ -166,14 +174,15 @@ PM.app = (function () {
       if (delta <= 0) continue;
 
       var a = byArch[c.archetype];
-      if (!a) a = byArch[c.archetype] = { sum: 0, best: 0, lead: c };
+      if (!a) a = byArch[c.archetype] = { sum: 0, best: 0, lead: c, weightedX: 0 };
       a.sum += delta;
+      a.weightedX += c.x * delta;
       if (delta > a.best) { a.best = delta; a.lead = c; }
     }
 
     for (var k in byArch) {
       var e = byArch[k];
-      PM.sound.growth(e.lead, e.sum, (e.lead.x / W - 0.5) * 1.7);
+      PM.sound.growth(e.lead, e.sum, (e.weightedX / e.sum / W - 0.5) * 1.7);
     }
 
     if (colonies.length > lastCount) {
@@ -186,7 +195,7 @@ PM.app = (function () {
   function draw() {
     lum.set(bg);
     if (fields) {
-      if (colonies.length) PM.scene.overlay(lum, fields, colonies);
+      if (colonies.length && state !== 'burning') PM.scene.overlay(lum, fields, colonies);
       if (state === 'inoculate') PM.scene.markers(lum, fields, points);
       PM.burn.paint(lum);
     }
@@ -244,6 +253,7 @@ PM.app = (function () {
       if (colonies[i].waves) colonies[i].waves.length = 0;
     }
     state = 'burning';
+    PM.sound.reset();
     PM.sound.event('fire');
     PM.burn.start(fields, seed, function () { newCulture(false); }, beforeBurn, bg);
     PM.ui.sync();
@@ -254,6 +264,7 @@ PM.app = (function () {
     if (state === 'growing' || state === 'mature') {
       resumeTo = state;
       state = 'paused';
+      PM.sound.reset();
       if (raf) { cancelAnimationFrame(raf); raf = null; }
       PM.ui.sync();
     } else if (state === 'paused') {

@@ -213,9 +213,10 @@ PM.growth = (function () {
       var v = f.film[j] + dens * soft;
       f.film[j] = v > 255 ? 255 : v;
     } else {
+      if (f.owner[j] !== c.id) f.texSet[j] = 0;
       f.owner[j] = c.id;
       f.birth[j] = f.tick;
-      f.density[j] = dens;
+      f.density[j] = Math.max(0, Math.min(255, dens));
     }
     f.nutrient[j] *= 0.22;
     f.inhibitor[j] += 0.16;
@@ -394,14 +395,14 @@ PM.growth = (function () {
 
   // --- агенты-кончики: гифы и цепочки пузырей ---
   function growTips(c, f, rnd, speed) {
-    if (rnd() > 0.045 * speed * c.sc) return;
+    var advanceChance = Math.min(1, 0.045 * speed * c.sc);
     var W = f.W, H = f.H, mask = f.mask;
     var tips = c.tips;
     var born = [];
 
     for (var t = 0; t < tips.length; t++) {
       var tip = tips[t];
-      if (tip.life <= 0) continue;
+      if (tip.life <= 0 || rnd() > advanceChance) continue;
 
       // поворот: инерция + шум + подтягивание к питанию
       var wob = PM.rng.fbm(tip.x / 7, tip.y / 7, c.seed + 77, 2) - 0.5;
@@ -422,7 +423,7 @@ PM.growth = (function () {
 
       var td = (c.a.fringeDens || c.a.dens) * c.tone;
       if (!f.owner[i]) occupy(c, f, i, td);
-      else if (f.density[i] < td) f.density[i] = td;
+      else if (f.density[i] < td) f.density[i] = Math.min(255, td);
 
       tip.life--;
 
@@ -480,7 +481,8 @@ PM.growth = (function () {
   function tick(f, colonies, rnd, speed) {
     if (!OFF8 || OFF8[3] !== f.W) buildOffsets(f.W);
 
-    for (var k = 0; k < colonies.length; k++) {
+    var countAtStart = colonies.length;
+    for (var k = 0; k < countAtStart; k++) {
       var c = colonies[k];
 
       // Капли и вторичные очаги раздуваются постепенно и досматриваются до
@@ -613,10 +615,10 @@ PM.growth = (function () {
           if (f.owner[j] !== c.id) continue;
           if (f.tick - f.birth[j] < c.ringPeriod * 2) continue;   // только зрелый газон
           var d = f.density[j] + v.boost;
-          f.density[j] = d > cap ? cap : d;
+          f.density[j] = Math.min(255, d > cap ? cap : d);
           // возраст сбрасывается не в ноль, а вразнобой: кольца по очагу
           // пойдут заново, но не сойдутся в правильный медальон
-          f.birth[j] = f.tick - ((rnd() * c.ringPeriod * 2.2) | 0);
+          f.birth[j] = Math.max(0, f.tick - ((rnd() * c.ringPeriod * 2.2) | 0));
         }
       }
       if (v.r >= v.rMax) V.splice(k, 1);
