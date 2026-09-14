@@ -331,15 +331,15 @@ PM.sound = (function () {
       var existing = drones[name].gain.gain;
       if (existing.cancelAndHoldAtTime) existing.cancelAndHoldAtTime(t);
       else { existing.cancelScheduledValues(t); existing.setValueAtTime(existing.value, t); }
-      existing.linearRampToValueAtTime(v.gain, t + 0.12);
-      existing.setValueAtTime(v.gain, t + 0.3);
+      existing.linearRampToValueAtTime(v.gain * 1.2, t + 0.12);
+      existing.setValueAtTime(v.gain * 1.2, t + 0.3);
       existing.linearRampToValueAtTime(0, t + 1.0);
       return;
     }
     var g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(v.gain, t + 0.12);
-    g.gain.setValueAtTime(v.gain, t + 0.3);
+    g.gain.linearRampToValueAtTime(v.gain * 1.2, t + 0.12);
+    g.gain.setValueAtTime(v.gain * 1.2, t + 0.3);
     g.gain.linearRampToValueAtTime(0, t + 1.0);
 
     var nodes = [];
@@ -408,7 +408,7 @@ PM.sound = (function () {
       q: v.q, spread: Math.min(150, v.spread * len), dur: Math.min(2.2, v.dur * len),
       attack: v.attack * (len > 1 ? len * 0.8 : 1),
       air: v.air * 0.32, tonal: v.tonal, rise: v.rise, arp: v.arp,
-      gain: v.gain * weight,
+      gain: v.gain * weight * 1.2,
       grains: Math.max(1, Math.min(3, (v.grains || 3) + grains))
     };
   }
