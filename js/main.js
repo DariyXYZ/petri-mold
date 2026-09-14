@@ -35,7 +35,7 @@ PM.app = (function () {
     var narrow = window.innerWidth < 760;
     // справа стоит палитра штаммов, на телефоне она уезжает вниз
     var availW = window.innerWidth - (narrow ? 14 : 250);
-    var availH = window.innerHeight - (narrow ? 290 : 130);
+    var availH = window.innerHeight - (narrow ? 365 : 130);
     var fit = Math.min(availW / W, availH / H);
     var scale = Math.max(1, Math.floor(fit));
 
@@ -193,6 +193,7 @@ PM.app = (function () {
     PM.render.blit(lum, W, H, img);
     offCtx.putImageData(img, 0, 0);
     PM.render.present(ctx, off, W, H, dw, dh);
+    PM.burn.present(canvas);
     if (state === 'inoculate') labelSpores();
   }
 

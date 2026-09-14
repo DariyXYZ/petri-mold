@@ -1,7 +1,7 @@
 var PM = PM || {};
 
 // All 13 original GIF frames, at their original 40 ms cadence. Rendering them
-// in the dish buffer shares its mask, pixel size, palette and dithering.
+// above the dish shares its pixel size, palette and dithering.
 PM.burn = (function () {
   var f, snapshot, clean, ash, edge, cleared;
   var active = false, done, started = null, elapsed = 0;
@@ -9,6 +9,8 @@ PM.burn = (function () {
   var SW = 366, SH = 391, COUNT = 13;
   var DURATION = 4000, EXIT = 3400;
   var left, right, bottom, drawW, drawH;
+  var overlay, overlayCtx, overlayLum, overlayImage, overlayAlpha;
+  var progress = 0;
   function clamp(v) { return Math.max(0, Math.min(1, v)); }
   function smooth(v) { v = clamp(v); return v * v * (3 - 2 * v); }
 
@@ -49,7 +51,7 @@ PM.burn = (function () {
     }
     drawH = (bottom - top) * 1.35;
     drawW = drawH * SW / SH;
-    front = left - 40;
+    front = left - 40; progress = 0;
     preload();
   }
 
@@ -63,7 +65,10 @@ PM.burn = (function () {
     var now = performance.now();
     if (started === null) started = now;
     elapsed = now - started;
-    front = left - 40 + (right - left + drawW * 0.5 + 40) * clamp(elapsed / EXIT);
+    var linear = clamp(elapsed / EXIT);
+    // Faster entry/exit, more time crossing the centre.
+    progress = linear + 0.09 * Math.sin(2 * Math.PI * linear);
+    front = left - 40 + (right - left + 110) * progress;
     for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
       var i = y * f.W + x;
       if (!f.mask[i] || cleared[i] || x + edge[i] > front - 8) continue;
@@ -76,33 +81,66 @@ PM.burn = (function () {
   function paint(lum) {
     if (!active) return;
     var recover = smooth((elapsed - EXIT) / (DURATION - EXIT));
-    var frame = Math.floor(elapsed / 40) % COUNT;
-    var ox = front - drawW * 0.5;
-    // Hide the source's straight lower edge below the circular agar boundary.
-    var oy = bottom + 24 - drawH;
     for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
       var i = y * f.W + x;
       if (!f.mask[i]) continue;
       var burned = smooth((front - 8 - x - edge[i]) / 14);
       var residue = ash[i] * (1 - recover) + clean[i] * recover;
       lum[i] = snapshot[i] * (1 - burned) + residue * burned;
-      if (!pixels) continue;
-      var sx = Math.floor((x - ox) / drawW * SW);
-      var sy = Math.floor((y - oy) / drawH * SH);
-      if (sx < 0 || sx >= SW || sy < 0 || sy >= SH) continue;
-      var p = (sy * SW * COUNT + frame * SW + sx) * 4;
-      var light = (pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114) / 255;
-      var coverage = smooth(light / 0.3);
-      // Match the dish grain; retain highlights without clipping to solid white.
-      var grain = (PM.palette.BAYER4[(y & 3) * 4 + (x & 3)] / 16 - 0.46875) * 24;
-      var tone = 205 * Math.pow(light, 0.85) + grain;
-      lum[i] = lum[i] * (1 - coverage) + tone * coverage;
     }
+  }
+
+  function present(stage) {
+    if (!overlay) {
+      overlay = document.getElementById('fire-overlay');
+      overlayCtx = overlay.getContext('2d');
+    }
+    if (!active || !pixels || elapsed >= EXIT) {
+      overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+      return;
+    }
+    var rect = stage.getBoundingClientRect();
+    var scale = rect.width / f.W;
+    var w = Math.ceil(window.innerWidth / scale), h = Math.ceil(window.innerHeight / scale);
+    if (overlay.width !== w || overlay.height !== h || !overlayImage) {
+      overlay.width = w; overlay.height = h;
+      overlayLum = new Float32Array(w * h);
+      overlayAlpha = new Uint8Array(w * h);
+      overlayImage = overlayCtx.createImageData(w, h);
+    }
+    overlayLum.fill(0); overlayAlpha.fill(0);
+    var frame = Math.floor(elapsed / 40) % COUNT;
+    // Even at the apex, the GIF's straight base stays below the viewport.
+    // Entry and exit come from vertical translation, never opacity.
+    var base = h + 24;
+    var height = Math.max(drawH, (base - rect.top / scale - (f.H - bottom)) * 1.25);
+    var width = height * SW / SH;
+    var rise = Math.pow(Math.sin(Math.PI * progress), 0.7);
+    var ox = rect.left / scale + front - width / 2;
+    var oy = base - height * rise;
+    for (var y = Math.max(0, Math.floor(oy)); y < h; y++) {
+      var sy = Math.floor((y - oy) / height * SH);
+      if (sy < 0 || sy >= SH) continue;
+      for (var x = Math.max(0, Math.floor(ox)); x < Math.min(w, ox + width); x++) {
+        var sx = Math.floor((x - ox) / width * SW);
+        if (sx < 0 || sx >= SW) continue;
+        var p = (sy * SW * COUNT + frame * SW + sx) * 4;
+        var light = (pixels[p] * 0.299 + pixels[p + 1] * 0.587 + pixels[p + 2] * 0.114) / 255;
+        var i = y * w + x;
+        overlayAlpha[i] = Math.round(255 * smooth(light / 0.3));
+        var grain = (PM.palette.BAYER4[(y & 3) * 4 + (x & 3)] / 16 - 0.46875) * 24;
+        overlayLum[i] = 205 * Math.pow(light, 0.85) + grain;
+      }
+    }
+    PM.render.blit(overlayLum, w, h, overlayImage);
+    for (var i = 0; i < overlayAlpha.length; i++) overlayImage.data[i * 4 + 3] = overlayAlpha[i];
+    overlayCtx.putImageData(overlayImage, 0, 0);
   }
   function reset() {
     active = false; done = null; started = null;
     f = snapshot = clean = ash = edge = cleared = null;
+    if (overlayCtx) overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
   }
   return { start: start, step: step, paint: paint, reset: reset,
-    preload: preload, isActive: function () { return active; } };
+    preload: preload, present: present, isActive: function () { return active; } };
 })();

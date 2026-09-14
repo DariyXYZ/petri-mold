@@ -8,9 +8,9 @@
 </head>
 <body>
 
-<button id="menu" aria-label="Settings" title="Settings (D)">≡</button>
+<button id="sound-toggle" aria-label="Sound" aria-pressed="true" title="Turn sound off">SOUND ON</button>
 <button id="save" title="Export PNG (S)">PNG</button>
-<div id="backdrop"></div>
+<canvas id="fire-overlay" aria-hidden="true"></canvas>
 
 <header id="status">
   <div id="phase">click inside the dish to place spores</div>
@@ -32,64 +32,6 @@
   <div id="brushes"></div>
   <div id="strain-info"><em>Pick a strain, then click inside the dish.</em></div>
 </aside>
-
-<div id="panel" role="dialog" aria-label="Settings">
-  <h2>Culture</h2>
-
-  <div class="row"><label>Speed</label><output id="speed-val"></output>
-    <input type="range" id="speed" min="1" max="8" step="1"></div>
-
-  <div class="row"><label for="sound">Sound</label>
-    <input type="checkbox" id="sound" class="chk" checked></div>
-
-  <div class="row"><label>Volume</label><output id="vol-val"></output>
-    <input type="range" id="vol" min="0" max="1" step="0.05"></div>
-
-  <div class="row"><label>Density</label><output id="dens-val"></output>
-    <input type="range" id="dens" min="0.3" max="2" step="0.1"></div>
-
-  <h2>Image</h2>
-
-  <div class="row"><label for="pal">Palette</label><select id="pal"></select></div>
-
-  <div class="row"><label for="dither">Dithering</label>
-    <input type="checkbox" id="dither" class="chk"></div>
-
-  <div class="row"><label>Dither amount</label><output id="amp-val"></output>
-    <input type="range" id="amp" min="0" max="60" step="1"></div>
-
-  <div class="row"><label>PNG size</label><output id="exp-val"></output>
-    <input type="range" id="exp" min="1" max="10" step="1"></div>
-
-  <h2>Dish</h2>
-
-  <div class="row"><label>Agar centre</label><output id="agar-c-val"></output>
-    <input type="range" id="agar-c" min="40" max="160" step="1"></div>
-
-  <div class="row"><label>Agar falloff</label><output id="agar-f-val"></output>
-    <input type="range" id="agar-f" min="0" max="90" step="1"></div>
-
-  <div class="row"><label>Mottling</label><output id="noise-val"></output>
-    <input type="range" id="noise" min="0" max="40" step="1"></div>
-
-  <div class="row"><label>Mottle scale</label><output id="nscale-val"></output>
-    <input type="range" id="nscale" min="2" max="24" step="0.5"></div>
-
-  <div class="row"><label>Grid</label><output id="grid-val"></output>
-    <input type="range" id="grid" min="0" max="50" step="1"></div>
-
-  <div class="row"><label>Rim base</label><output id="rim-b-val"></output>
-    <input type="range" id="rim-b" min="60" max="220" step="1"></div>
-
-  <div class="row"><label>Rim light</label><output id="rim-s-val"></output>
-    <input type="range" id="rim-s" min="0" max="90" step="1"></div>
-
-  <div class="row"><label>Rim breaks</label><output id="rim-k-val"></output>
-    <input type="range" id="rim-k" min="0" max="1" step="0.05"></div>
-
-  <div class="row"><label>Glass glare</label><output id="glare-val"></output>
-    <input type="range" id="glare" min="0" max="8" step="1"></div>
-</div>
 
 <script src="js/rng.js"></script>
 <script src="js/palette.js"></script>
