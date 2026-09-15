@@ -8,7 +8,8 @@
 // Гоняется РОВНО тот модуль, что в игре (js/burn.js), поверх настоящей
 // выращенной чашки и через настоящую палитру с дизером, — поэтому GIF
 // показывает то, что будет на экране, а не отдельную офлайновую модель.
-// Варианты ниже правят только параметры PM.burn.P.
+// Здесь десять самостоятельных профилей для выбора; они не меняют игру, пока
+// выбранный профиль отдельно не будет перенесён в js/burn.js.
 //
 // Предпросмотр кладётся в tools/preview/ (GIF в .gitignore, они большие),
 // параметры — рядом в variants.json.
@@ -66,26 +67,35 @@ function growDish(PM, W, H, seed, ticks) {
   return { fields: f, colonies: colonies };
 }
 
-// --- варианты: правки к PM.burn.P ---
+// --- варианты вихревого particle-fire ---
 
 var VARIANTS = [
-  { name: 'crest', title: 'гребень', note: 'то, что стоит в игре', over: {} },
-  { name: 'low',   title: 'низкий',
-    note: 'языки ниже и чаще, лента толще — совсем спокойное выжигание',
-    over: { hMain: 12, hTeeth: 5, lMain: 8, ribbon: 9, base: 8 } },
-  { name: 'tall',  title: 'высокий',
-    note: 'редкие высокие языки, лента тоньше',
-    over: { hMain: 26, hTeeth: 7, lMain: 15, ribbon: 6, base: 6, sharp: 2.6 } }
+  { name: '01-low-smoulder', title: '01 — low smoulder', note: 'низкий, тяжёлый, почти дымный',
+    style: { speed: 1.50, rate: 17, life: 28, lift: 0.48, swirl: 0.28, scatter: 13, size: 5.5, light: 205 } },
+  { name: '02-slow-veil', title: '02 — slow veil', note: 'медленная широкая завеса',
+    style: { speed: 1.55, rate: 29, life: 45, lift: 0.59, swirl: 0.45, scatter: 28, size: 7.2, light: 220 } },
+  { name: '03-ember-spray', title: '03 — ember spray', note: 'мелкие рваные искры',
+    style: { speed: 1.80, rate: 46, life: 23, lift: 0.92, swirl: 0.50, scatter: 20, size: 3.5, light: 245 } },
+  { name: '04-balanced-fire', title: '04 — balanced fire', note: 'плотный факел с мягкими хвостами',
+    style: { speed: 2.05, rate: 31, life: 35, lift: 0.72, swirl: 0.58, scatter: 19, size: 5.4, light: 232 } },
+  { name: '05-sidewind', title: '05 — sidewind', note: 'факел, сдуваемый боковым вихрем',
+    style: { speed: 2.10, rate: 35, life: 38, lift: 0.70, swirl: 1.08, scatter: 24, size: 5.7, light: 230 } },
+  { name: '06-bright-roil', title: '06 — bright roil', note: 'яркая кипящая масса',
+    style: { speed: 2.20, rate: 53, life: 30, lift: 0.84, swirl: 0.82, scatter: 22, size: 6.0, light: 255 } },
+  { name: '07-fast-burn', title: '07 — fast burn', note: 'быстро сжигает, оставляя короткие следы',
+    style: { speed: 2.85, rate: 38, life: 24, lift: 0.96, swirl: 0.46, scatter: 17, size: 4.4, light: 245 } },
+  { name: '08-fast-chaos', title: '08 — fast chaos', note: 'быстрый рваный вихрь',
+    style: { speed: 2.90, rate: 58, life: 28, lift: 0.91, swirl: 1.22, scatter: 28, size: 5.4, light: 250 } },
+  { name: '09-tall-whorls', title: '09 — tall whorls', note: 'длинные закрученные языки',
+    style: { speed: 1.85, rate: 34, life: 52, lift: 0.75, swirl: 0.93, scatter: 23, size: 6.6, light: 235 } },
+  { name: '10-firestorm', title: '10 — firestorm', note: 'самый плотный и турбулентный',
+    style: { speed: 2.45, rate: 67, life: 38, lift: 0.86, swirl: 1.42, scatter: 31, size: 6.4, light: 255 } }
 ];
 
 // --- один вариант ---
 
 function bake(PM, o, cfg) {
   var W = o.W, H = o.H, n = W * H;
-
-  var base = {};
-  Object.keys(PM.burn.P).forEach(function (k) { base[k] = PM.burn.P[k]; });
-  Object.keys(cfg.over).forEach(function (k) { PM.burn.P[k] = cfg.over[k]; });
 
   var dish = growDish(PM, W, H, o.seed, o.ticks);
   var f = dish.fields, colonies = dish.colonies;
@@ -105,7 +115,7 @@ function bake(PM, o, cfg) {
   }));
 
   var frames = 0, steps = 0;
-  PM.burn.start(f, o.seed, function () {});
+  PM.burn.start(f, o.seed, function () {}, cfg.style);
 
   while (PM.burn.isActive() && steps < o.maxSteps) {
     PM.burn.step();
@@ -134,22 +144,14 @@ function bake(PM, o, cfg) {
     frames++;
   }
 
-  var snapshot = {};
-  Object.keys(PM.burn.P).forEach(function (k) { snapshot[k] = PM.burn.P[k]; });
-  Object.keys(base).forEach(function (k) { PM.burn.P[k] = base[k]; });
-
-  return { gif: gif.buffer(), frames: frames, steps: steps, params: snapshot };
+  return { gif: gif.buffer(), frames: frames, steps: steps };
 }
 
 // --- прогон ---
 
 function main() {
-  var PM = loadPM();
-  PM.palette.setName('grey8');
-
   var o = {
-    W: 380, H: 389, seed: 424242, ticks: 4200,
-    dither: PM.palette.autoAmp(), every: 2, maxSteps: 600
+    W: 380, H: 389, seed: 424242, ticks: 4200, every: 2, maxSteps: 600
   };
 
   if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
@@ -157,6 +159,9 @@ function main() {
 
   for (var i = 0; i < VARIANTS.length; i++) {
     var cfg = VARIANTS[i];
+    var PM = loadPM();
+    PM.palette.setName('grey8');
+    o.dither = PM.palette.autoAmp();
     var t0 = Date.now();
     var r = bake(PM, o, cfg);
     var file = path.join(OUT, 'burn-' + cfg.name + '.gif');
@@ -171,7 +176,7 @@ function main() {
       gif: path.relative(ROOT, file).replace(/\\/g, '/'),
       frames: r.frames, steps: r.steps,
       seconds: +(r.steps / 60).toFixed(2), sizeKB: +kb,
-      over: cfg.over, params: r.params
+      style: cfg.style
     });
   }
 
