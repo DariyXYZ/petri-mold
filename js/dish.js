@@ -105,9 +105,9 @@ PM.dish = (function () {
   // внизу и короткая искра справа. Раньше все три были одного калибра и
   // случайно сбивались в кучу на одной стороне.
   var GLARES = [
-    { ang: -2.30, span: 0.32, amp: 42, depth: 0.02 },
-    { ang:  1.25, span: 0.22, amp: 38, depth: 0.05 },
-    { ang: -0.35, span: 0.15, amp: 36, depth: 0.03 }
+    { ang: -2.30, span: 0.75, amp: 46, depth: 0.02 },
+    { ang:  1.25, span: 0.55, amp: 42, depth: 0.05 },
+    { ang: -0.35, span: 0.45, amp: 40, depth: 0.03 }
   ];
   function addGlare(lum, W, H, seed, g) {
     var rnd = PM.rng.mulberry32(seed ^ 0x9e37);
@@ -123,12 +123,13 @@ PM.dish = (function () {
         var f = s / steps;
         var th = a0 + (f - 0.5) * span;
         var fall = Math.sin(f * Math.PI);          // затухание к концам дуги
-        for (var w = -Math.round(W / 192); w <= Math.round(W / 192); w++) {
+        // тонкая нить: один пиксель, соседи едва подсвечены
+        for (var w = -1; w <= 1; w++) {
           var x = Math.round(cx + Math.cos(th) * (rr + w));
           var y = Math.round(cy + Math.sin(th) * (rr + w));
           if (x < 0 || y < 0 || x >= W || y >= H) continue;
           var i = y * W + x;
-          lum[i] += G.amp * fall * (w === 0 ? 1 : 0.45);
+          lum[i] += G.amp * fall * (w === 0 ? 1 : 0.22);
         }
       }
     }

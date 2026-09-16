@@ -2,7 +2,7 @@
 
 /* --k — шаг пикселя чашки на экране, ставит js/main.js. Кнопки считают от
    него всё: кегль, рамку, отступы — и живут в той же сетке, что чашка. */
-:root { --k: 2; }
+:root { --k: 2; --kt: 2; }
 
 /* Растровый MS Sans Serif из Windows 95 (FontStruction «lou», CC BY-SA 3.0,
    конвертация из 98.css). Нарисован под 11 px: любой другой кегль плывёт,
@@ -65,8 +65,7 @@ body.running #stage { cursor: default; }
   padding: 78px 200px 24px 8px;
 }
 
-#bar { display: flex; gap: 8px; justify-content: center; }
-#bar button { min-width: 132px; }
+#bar { display: flex; gap: 28px; justify-content: center; }
 
 /* Сводка вверху: сколько видов растёт и какие именно. Внизу остаётся
    чистое чёрное поле с чашкой. */
@@ -107,20 +106,22 @@ body.running #stage { cursor: default; }
   gap: 8px 6px;
 }
 
-/* Плитка — только чашка и подпись, без плашки: выбранная чашка «загорается»
-   белым кольцом, оно рисуется в самом превью (js/preview.js). */
+/* Плитка — образец плесени и подпись, без плашки. Выбор — подпись ярче
+   и четыре уголка вокруг (картинка из js/skin.js). */
 .tile {
   position: relative;
   display: grid;
   gap: 2px;
   justify-items: center;
-  padding: 2px 0 3px;
-  background: transparent !important;
+  padding: 4px 3px 5px;
+  background: transparent;
   border: 0;
   border-radius: 0;
   font-size: 11px;
   overflow: hidden;
 }
+.tile:hover:not(:disabled) { background-image: none; }
+.tile.on, .tile.on:hover:not(:disabled) { background-image: var(--bg-hover); }
 .tile canvas {
   width: 100%;
   height: auto;
@@ -134,7 +135,7 @@ body.running #stage { cursor: default; }
   word-break: break-all;
 }
 .tile:hover .cap { color: #8c8c8c; }
-.tile.on .cap { color: #e6e6e6; }
+.tile.on .cap { color: #f2f2f2; }
 
 #strain-info {
   margin-top: 12px;
@@ -164,8 +165,13 @@ em { font-style: normal; }
 }
 #bar { position: relative; z-index: 15; }
 /* плитка «случайно»: на всю ширину, в центре пятно-«?» */
-.tile-random { grid-column: 1 / -1; }
-.tile-random canvas { width: 88px; height: 88px; }
+/* плитка «случайно» — квадрат в две ячейки, знак по центру */
+.tile-random {
+  grid-column: 1 / -1;
+  aspect-ratio: 1;
+  grid-template-rows: 1fr auto;
+}
+.tile-random canvas { width: 88px; height: 88px; align-self: center; }
 button:focus-visible { outline: 1px solid #ddd; outline-offset: 3px; }
 
 h2 {
@@ -179,23 +185,23 @@ button {
   cursor: crosshair;
 }
 
-/* Фон кнопки рисует js/skin.js: рамка, фаска, сколы и пятна в шаге пикселя
-   чашки, три картинки на три состояния. Наведение зажигает грань белым
-   сразу; нажатие (.pressed, вешает skin.js) держится не меньше 220 мс. */
+/* Кнопка — только надпись в шаге пикселя чашки (--kt — целый множитель
+   кегля). Наведение рисует четыре уголка (js/skin.js), нажатие (.pressed,
+   держится 220 мс) сдвигает их на пиксель внутрь. */
 button {
-  background: #141414 var(--bg-idle) center / auto no-repeat;
+  background: transparent var(--bg-idle) center / auto no-repeat;
   image-rendering: pixelated;
-  color: #b3b3b3;
+  color: #d9d9d9;
   border: 0;
   font: inherit;
-  font-size: 11px;
-  line-height: 1.4;
-  padding: calc(6px + 2px * var(--k)) calc(9px + 2px * var(--k));
+  font-size: calc(11px * var(--kt));
+  line-height: 1.2;
+  padding: calc(5px * var(--k)) calc(7px * var(--k));
   border-radius: 0;
 }
-button:hover:not(:disabled) { background-image: var(--bg-hover); color: #f2f2f2; }
+button:hover:not(:disabled) { background-image: var(--bg-hover); color: #ffffff; }
 button.pressed:not(:disabled) { background-image: var(--bg-press); }
-button:disabled { color: #333; }
+button:disabled { color: #3a3a3a; }
 
 
 
@@ -232,7 +238,7 @@ button:disabled { color: #333; }
   }
   .tile { width: 72px; }
   .tile canvas { width: 48px; }
-  .tile-random { width: 150px; grid-row: 1 / 3; grid-column: 1 / 3; }
+  .tile-random { width: 150px; grid-row: 1 / 3; grid-column: 1 / 3; aspect-ratio: auto; }
   .tile-random canvas { width: 88px; }
 
 

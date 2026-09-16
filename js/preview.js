@@ -15,21 +15,16 @@ PM.preview = (function () {
   // Симуляция гоняется один раз на штамм (base), варианты с кольцом —
   // копия буфера плюс кольцо. Раньше каждый вариант растил колонию заново,
   // и первое наведение подвисало на сотню миллисекунд.
-  // Тонкое серое кольцо есть у всех чашек всегда — как край стекла; наведение
-  // чуть подсвечивает его, выбор зажигает белым.
-  var RING = [104, 150, 235];
+  // Образец — только плесень, без чашки: фон прозрачный, выбор обозначает
+  // плитка (уголки и подпись), не картинка. lit сохранён для совместимости.
   var base = {};
-  var RR = SIZE * 0.5 - 1.5;         // радиус агара; кольцо ложится на его край
+  var RR = SIZE * 0.5 - 1.5;         // радиус поля, где растёт образец
   function build(name, lit) {
-    lit = lit | 0;
-    var key = name + '/' + lit;
-    if (cache[key]) return cache[key];
+    if (cache[name]) return cache[name];
     var S = SIZE;
     if (!base[name]) base[name] = grow(name);
-    var lum = new Float32Array(base[name]);
-    ring(lum, S, S / 2, S / 2, RR - 0.4, lit ? 1.5 : 1.2, RING[lit]);
-    cache[key] = toCanvas(lum, S);
-    return cache[key];
+    cache[name] = toCanvas(base[name], S);
+    return cache[name];
   }
 
   function grow(name) {
@@ -49,6 +44,9 @@ PM.preview = (function () {
 
     for (var t = 0; t < TICKS; t++) PM.growth.tick(f, [c], rnd, 8);
 
+    // Под колонией — тот же агар, что в чашке (54), но только там, где она
+    // выросла: снаружи ноль, и toCanvas делает это прозрачным. Так кромка
+    // сходит на нет в фон, как в чашке, а самой чашки нет.
     var lum = new Float32Array(S * S);
     var cx = S / 2, cy = S / 2, rr = RR;
     for (var y = 0; y < S; y++) {
@@ -58,6 +56,9 @@ PM.preview = (function () {
       }
     }
     PM.scene.overlay(lum, f, [c]);
+    for (var i = 0; i < S * S; i++) {
+      if (!f.owner[i] && !f.film[i]) lum[i] = 0;
+    }
     return lum;
   }
 
@@ -74,113 +75,42 @@ PM.preview = (function () {
     return cv;
   }
 
-  // Кольцо подсветки вокруг чашки. Профиль треугольный с мягкими склонами:
-  // дизер раскладывает полутона в россыпь пикселей, и кольцо читается
-  // размытым, а не ступенчатым.
-  function ring(lum, S, cx, cy, rc, w, v) {
-    for (var y = 0; y < S; y++) {
-      for (var x = 0; x < S; x++) {
-        var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-        var t = 1 - Math.abs(Math.sqrt(dx * dx + dy * dy) - rc) / w;
-        if (t <= 0) continue;
-        var i = y * S + x;
-        lum[i] = lum[i] + (v - lum[i]) * t;
-      }
-    }
-  }
-
-  // Плитка «случайный штамм»: не шрифтовой знак, а маленький «?», выросший
-  // как пятно плесени. Глиф рисуется мелко и растягивается со сглаживанием —
-  // это и есть размытие без ctx.filter; дальше край слегка искривляется шумом
-  // и всё уходит в тот же дизер, что у чашки. Размер тот же, что был у знака.
+  // Знак «?» для плитки «случайно»: чистый, без плесени — растровый глиф
+  // с жёстким краем, в три яркости: покой, наведение, выбор.
   var RS = 88;
-  var qBase = null, qHover = null, qSel = null;
+  var TONE = [140, 179, 230];
+  var qMask = null;
   function random(lit) {
     lit = lit | 0;
     var key = '?/' + lit;
     if (cache[key]) return cache[key];
     var S = RS;
-    if (!qBase) glyph();
-    var lum = new Float32Array(qBase);
-    if (lit) {
-      // наведение — тонкая ровная серая обводка; выбор — белый пушистый
-      // ореол мицелия, как у плотной колонии
-      var mask = lit === 1 ? qHover : qSel, v = lit === 1 ? 150 : 235;
-      for (var i = 0; i < S * S; i++) {
-        if (mask[i] > 0) lum[i] = Math.max(lum[i], v * mask[i]);
-      }
-    }
+    if (!qMask) glyph();
+    var lum = new Float32Array(S * S);
+    for (var i = 0; i < S * S; i++) if (qMask[i]) lum[i] = TONE[lit];
     cache[key] = toCanvas(lum, S);
     return cache[key];
   }
 
-  // Знак как пятно плесени: размытый глиф, фестончатый край (крупная волна
-  // даёт лопасти, мелкая — зазубрины), бархат внутри, темнее к середине,
-  // без крапа. Отдельно — маска окантовки: полоса мицелия сразу за краем,
-  // рваная на волокна и с редкими нитями наружу; сама по себе не рисуется,
-  // её зажигает наведение или выбор.
   function glyph() {
-    var S = RS, ss = PM.rng.smoothstep;
-
-    var small = document.createElement('canvas');
+    var S = RS;
+    var c = document.createElement('canvas');
+    c.width = c.height = S;
+    var g = c.getContext('2d', { willReadFrequently: true });
+    g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#fff';
     // Глиф центрируется по фактической рамке, а не по базовой линии: у «?»
     // крюк тяжелее точки, «middle» сажает его вкривь.
-    var SM = 22;
-    small.width = small.height = SM;
-    var sx = small.getContext('2d');
-    sx.fillStyle = '#000'; sx.fillRect(0, 0, SM, SM);
-    sx.fillStyle = '#fff';
-    sx.font = 'bold 22px Georgia, "Times New Roman", serif';
-    sx.textAlign = 'left'; sx.textBaseline = 'alphabetic';
-    var mt = sx.measureText('?');
+    g.font = 'bold 79px Georgia, "Times New Roman", serif';
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    var mt = g.measureText('?');
     var gw = (mt.actualBoundingBoxLeft || 0) + (mt.actualBoundingBoxRight || mt.width);
-    var asc = mt.actualBoundingBoxAscent || 15, desc = mt.actualBoundingBoxDescent || 0;
-    sx.fillText('?', (SM - gw) / 2 + (mt.actualBoundingBoxLeft || 0),
-                (SM - asc - desc) / 2 + asc);
-
-    var big = document.createElement('canvas');
-    big.width = big.height = S;
-    var bx = big.getContext('2d', { willReadFrequently: true });
-    bx.imageSmoothingEnabled = true;
-    bx.imageSmoothingQuality = 'high';
-    bx.drawImage(small, 0, 0, S, S);
-    var px = bx.getImageData(0, 0, S, S).data;
-
-    // Второе, вдвое более размытое поле — для ореола: у обычного размытие
-    // кончается в четырёх пикселях от края, а ореолу нужно расти дальше.
-    var tiny = document.createElement('canvas');
-    tiny.width = tiny.height = SM / 2;
-    var tx = tiny.getContext('2d');
-    tx.imageSmoothingEnabled = true; tx.imageSmoothingQuality = 'high';
-    tx.drawImage(small, 0, 0, SM / 2, SM / 2);
-    bx.clearRect(0, 0, S, S);
-    bx.drawImage(tiny, 0, 0, S, S);
-    var px2 = bx.getImageData(0, 0, S, S).data;
-
-    qBase = new Float32Array(S * S);
-    qHover = new Float32Array(S * S);
-    qSel = new Float32Array(S * S);
-    for (var y = 0; y < S; y++) {
-      for (var x = 0; x < S; x++) {
-        var i = y * S + x;
-        var g = px[i * 4] / 255;                         // размытый глиф: 1 внутри
-        var g2 = px2[i * 4] / 255;                       // то же, шире размытое
-        if (g2 <= 0.003) continue;
-        var m = PM.rng.fbm(x / 9, y / 9, 777, 2);        // лопасти
-        var n = PM.rng.fbm(x / 2.6, y / 2.6, 313, 2);    // зазубрины
-        var e = g + (m - 0.5) * 0.36 + (n - 0.5) * 0.14; // искажённое расстояние
-        var body = ss(0.36, 0.6, e);
-        var core = ss(0.75, 1.0, g);
-        qBase[i] = body * (128 * (0.92 + 0.16 * m) - 40 * core * (0.6 + 0.4 * m));
-
-        // Наведение: тонкая ровная полоса сразу за краем, без искривлений.
-        qHover[i] = ss(0.17, 0.3, g) * (1 - body);
-        // Выбор: широкий пушистый ореол с рваным внешним краем — мицелий,
-        // разросшийся вокруг знака.
-        var e3 = g2 + (n - 0.5) * 0.26 + (m - 0.5) * 0.2;
-        qSel[i] = Math.min(1, ss(0.02, 0.2, e3) * (1 - body) * (0.85 + 0.15 * m));
-      }
-    }
+    var asc = mt.actualBoundingBoxAscent || 54, desc = mt.actualBoundingBoxDescent || 0;
+    g.fillText('?', (S - gw) / 2 + (mt.actualBoundingBoxLeft || 0),
+               (S - asc - desc) / 2 + asc);
+    var px = g.getImageData(0, 0, S, S).data;
+    qMask = new Uint8Array(S * S);
+    for (var i = 0; i < S * S; i++) qMask[i] = px[i * 4] >= 128 ? 1 : 0;
   }
 
   return { build: build, random: random, SIZE: SIZE };
