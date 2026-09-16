@@ -39,10 +39,6 @@ PM.app = (function () {
     var availH = window.innerHeight - (narrow ? 365 : 130);
     var fit = Math.min(availW / W, availH / H);
     var scale = Math.max(1, Math.floor(fit));
-    // Кнопки рисуются в том же шаге пикселя и растут вместе с ним; на крупном
-    // масштабе ряд под чашкой выше — снижаем масштаб, пока всё не влезет.
-    while (!narrow && scale > 1 &&
-           H * scale > window.innerHeight - 100 - 28 * scale) scale--;
 
     // Внутренний буфер — всегда целое кратное, пиксель остаётся квадратным.
     dw = W * scale; dh = H * scale;

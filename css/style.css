@@ -66,7 +66,7 @@ body.running #stage { cursor: default; }
 }
 
 #bar { display: flex; gap: 8px; justify-content: center; }
-#bar button { min-width: calc(66px * var(--k)); }
+#bar button { min-width: 132px; }
 
 /* Сводка вверху: сколько видов растёт и какие именно. Внизу остаётся
    чистое чёрное поле с чашкой. */
@@ -79,11 +79,7 @@ body.running #stage { cursor: default; }
   text-align: center;
   pointer-events: none;
 }
-#phase {
-  color: #8c8c8c;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
+#phase { color: #8c8c8c; }
 #species {
   margin-top: 4px;
   color: #4d4d4d;
@@ -121,7 +117,8 @@ body.running #stage { cursor: default; }
   padding: 2px 0 3px;
   background: transparent;
   border: 0;
-  box-shadow: none;
+  box-shadow: none !important;
+  transition: none;
   border-radius: 0;
   font-size: 11px;
   overflow: hidden;
@@ -158,7 +155,7 @@ em { font-style: normal; }
   position: fixed;
   z-index: 30;
 }
-#save { left: 12px; bottom: 12px; letter-spacing: 1px; }
+#save { left: 12px; bottom: 12px; }
 #sound-toggle { left: 12px; top: 12px; }
 #fire-overlay {
   position: fixed; inset: 0;
@@ -174,8 +171,6 @@ em { font-style: normal; }
 button:focus-visible { outline: 1px solid #ddd; outline-offset: 3px; }
 
 h2 {
-  letter-spacing: 1px;
-  text-transform: uppercase;
   color: #3d3d3d;
   font-weight: 400;
   margin: 6px 0 5px;
@@ -189,26 +184,35 @@ button {
 /* Кнопка в шаге пикселя чашки: рамка в один пиксель буфера, фаска в один
    пиксель (светлая сверху-слева, чёрная снизу-справа — как у Win95), кегль
    кратный. Тени без размытия — это те же пиксели, а не CSS-эффект. */
+/* Наведение зажигает блик фаски (светлую грань сверху-слева), а не рамку
+   вокруг. Нажатие переворачивает фаску сразу, а обратно отпускает с
+   задержкой — кнопка «дожимается». */
 button {
   background: #141414;
   color: #b3b3b3;
   border: calc(1px * var(--k)) solid #262626;
   font: inherit;
-  font-size: calc(11px * var(--k));
-  line-height: 1.2;
-  padding: calc(4px * var(--k)) calc(9px * var(--k));
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 7px 11px;
   border-radius: 0;
   box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #2e2e2e,
               inset calc(-1px * var(--k)) calc(-1px * var(--k)) #000;
+  transition: box-shadow 0s linear 0.22s, color 0.15s;
 }
-button:hover:not(:disabled) { border-color: #4d4d4d; color: #e6e6e6; }
+button:hover:not(:disabled) {
+  color: #e6e6e6;
+  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #7a7a7a,
+              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #000;
+}
 button:active:not(:disabled) {
+  transition-delay: 0s;
   box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #000,
-              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #2e2e2e;
+              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #7a7a7a;
 }
 button:disabled { color: #333; border-color: #1a1a1a; box-shadow: none; }
 
-#start { letter-spacing: 1px; }
+
 
 
 /* ---------- телефон ---------- */

@@ -42,26 +42,36 @@ PM.preview = (function () {
       }
     }
     PM.scene.overlay(lum, f, [c]);
-    if (lit) ring(lum, S, cx, cy, rr + 1.2, rr + 2.6, RING[lit]);
+    if (lit) ring(lum, S, cx, cy, rr + 1.9, 1.7, RING[lit]);
 
+    cache[key] = toCanvas(lum, S);
+    return cache[key];
+  }
+
+  // Буфер яркости → холст. Фон (яркость 0) прозрачный: у плитки нет чёрной
+  // подложки, чашка лежит прямо на панели.
+  function toCanvas(lum, S) {
     var cv = document.createElement('canvas');
     cv.width = S; cv.height = S;
     var ctx = cv.getContext('2d');
     var img = ctx.createImageData(S, S);
     PM.render.blit(lum, S, S, img);
+    for (var i = 0; i < S * S; i++) if (lum[i] <= 1) img.data[i * 4 + 3] = 0;
     ctx.putImageData(img, 0, 0);
-
-    cache[key] = cv;
     return cv;
   }
 
-  // Кольцо подсветки: пиксель буфера в белый, чашка «загорается» по контуру.
-  function ring(lum, S, cx, cy, r0, r1, v) {
-    var a = r0 * r0, b = r1 * r1;
+  // Кольцо подсветки вокруг чашки. Профиль треугольный с мягкими склонами:
+  // дизер раскладывает полутона в россыпь пикселей, и кольцо читается
+  // размытым, а не ступенчатым.
+  function ring(lum, S, cx, cy, rc, w, v) {
     for (var y = 0; y < S; y++) {
       for (var x = 0; x < S; x++) {
-        var dx = x + 0.5 - cx, dy = y + 0.5 - cy, d2 = dx * dx + dy * dy;
-        if (d2 >= a && d2 < b) lum[y * S + x] = v;
+        var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+        var t = 1 - Math.abs(Math.sqrt(dx * dx + dy * dy) - rc) / w;
+        if (t <= 0) continue;
+        var i = y * S + x;
+        lum[i] = lum[i] + (v - lum[i]) * t;
       }
     }
   }
@@ -101,36 +111,41 @@ PM.preview = (function () {
     bx.drawImage(small, 0, 0, S, S);
     var px = bx.getImageData(0, 0, S, S).data;
 
-    // Пятно как базовая колония: бархатное тело, светлая кайма стерильного
-    // мицелия по краю, темнее к середине, снаружи чуть пуха. Размытый глиф
-    // g заодно служит расстоянием до края: 1 в глубине, ~0.5 на контуре.
+    // Пятно плесени в форме знака. Контур — не ровная обводка глифа, а
+    // фестончатый край: крупная волна даёт лопасти, мелкая — зазубрины,
+    // как у колонии на агаре. Внутри бархат, темнее к середине, без крапа.
+    // Размытый глиф g служит расстоянием до края: 1 в глубине, ~0.5 на
+    // контуре, меньше — снаружи.
+    //
+    // В покое обводки нет. Наведение и выбор зажигают вокруг знака рваную
+    // светящуюся кайму: её яркость гуляет тем же шумом, что и край, поэтому
+    // она читается как ореол мицелия, а не как контур в редакторе.
     var lum = new Float32Array(S * S);
-    var gain = [1, 1.2, 1.5][lit];       // покой / наведение / выбран
+    var glow = [0, 0.5, 1][lit];         // покой / наведение / выбран
     for (var y = 0; y < S; y++) {
       for (var x = 0; x < S; x++) {
         var i = y * S + x;
         var g = px[i * 4] / 255;
-        if (g <= 0.01) continue;
-        var m = PM.rng.fbm(x / 7, y / 7, 777, 2);
-        var body = ss(0.32, 0.72, g + (m - 0.5) * 0.14);
-        var rim = ss(0.36, 0.62, g) * (1 - ss(0.62, 0.95, g));   // кайма
-        var core = ss(0.72, 1.0, g);                            // споровый центр
-        var fur = ss(0.14, 0.34, g) * (1 - body);              // пух снаружи
-        var l = body * (100 * (0.9 + 0.2 * m) + 95 * rim - 42 * core * (0.6 + 0.4 * m))
-              + fur * 55 * m;
-        lum[i] = l * gain;
+        if (g <= 0.005) continue;
+        var m = PM.rng.fbm(x / 9, y / 9, 777, 2);        // лопасти
+        var n = PM.rng.fbm(x / 2.6, y / 2.6, 313, 2);    // зазубрины
+        var e = g + (m - 0.5) * 0.36 + (n - 0.5) * 0.14; // искажённое расстояние
+        var body = ss(0.36, 0.6, e);
+        var core = ss(0.75, 1.0, g);
+        var l = body * (128 * (0.92 + 0.16 * m) - 40 * core * (0.6 + 0.4 * m));
+        if (glow > 0) {
+          // Ореол: широкая полоса за краем, ярче у самого тела и рваная по
+          // яркости. Размытие глифа снаружи короткое, поэтому полоса берётся
+          // с самого низа шкалы g, иначе выходит нитка в пиксель.
+          var halo = ss(0.015, 0.2, e) * (1 - ss(0.3, 0.44, e));
+          l += glow * halo * (175 + 60 * n) * (0.6 + 0.4 * m);
+        }
+        lum[i] = l;
       }
     }
 
-    var cv = document.createElement('canvas');
-    cv.width = S; cv.height = S;
-    var ctx = cv.getContext('2d');
-    var img = ctx.createImageData(S, S);
-    PM.render.blit(lum, S, S, img);
-    ctx.putImageData(img, 0, 0);
-
-    cache[key] = cv;
-    return cv;
+    cache[key] = toCanvas(lum, S);
+    return cache[key];
   }
 
   return { build: build, random: random, SIZE: SIZE };
