@@ -203,13 +203,13 @@ button:disabled { color: #333; border-color: #1a1a1a; }
 
 @media (max-width: 760px), (pointer: coarse) {
 
-  #wrap { padding: 76px 6px 282px; gap: 12px; }
+  #wrap { padding: 76px 6px 232px; gap: 12px; }
 
   #status { left: 8px; right: 8px; top: 66px; }
 
   /* палитра уезжает вниз и листается горизонтально */
   #strains {
-    top: auto; bottom: 48px; right: 0; left: 0;
+    top: auto; bottom: 0; right: 0; left: 0;
     width: 100%;
     height: auto;
     max-height: 166px;
@@ -239,14 +239,15 @@ button:disabled { color: #333; border-color: #1a1a1a; }
   #bar {
     position: fixed;
     left: 6px; right: 6px;
-    bottom: 220px;
+    bottom: 174px;
     gap: 8px;
     z-index: 15;
   }
   #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 8px 6px; }
 
   #sound-toggle { min-height: 44px; }
-  #save { left: 6px; bottom: 6px; height: 38px; }
+  /* PNG — в правом верхнем углу, напротив звука; низ целиком под палитру */
+  #save { left: auto; right: 12px; top: 12px; bottom: auto; min-height: 44px; }
 
 }
 
