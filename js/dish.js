@@ -81,8 +81,11 @@ PM.dish = (function () {
              * 2 * g.agarNoiseAmp;
 
         // --- сетка под чашкой, линия ровно 1 px буфера ---
-        var gx = ((x + 0.5 - cx) % step + step) % step;
-        var gy = ((y + 0.5 - gcy) % step + step) % step;
+        // от индекса столбца, не от его центра: центр чашки 0.5·W лежит ровно
+        // на границе двух столбцов, и с +0.5 ни один не проходил порог —
+        // центральная вертикаль сетки выпадала
+        var gx = ((x - cx) % step + step) % step;
+        var gy = ((y - gcy) % step + step) % step;
         if (gx > step * 0.5) gx = step - gx;
         if (gy > step * 0.5) gy = step - gy;
         if (gx < 0.5 || gy < 0.5) a += g.gridBoost;
@@ -97,14 +100,24 @@ PM.dish = (function () {
     if (g.glareCount > 0) addGlare(lum, W, H, seed, g);
   }
 
-  // Постоянные блики стекла — короткие светлые дуги у внутренней грани обода
+  // Постоянные блики стекла — светлые дуги у внутренней грани обода. Три
+  // разных: длинная мягкая на освещённой стороне (слева-сверху), средняя
+  // внизу и короткая искра справа. Раньше все три были одного калибра и
+  // случайно сбивались в кучу на одной стороне.
+  var GLARES = [
+    { ang: -2.30, span: 0.55, amp: 44, depth: 0.02 },
+    { ang:  1.25, span: 0.20, amp: 38, depth: 0.05 },
+    { ang: -0.35, span: 0.08, amp: 32, depth: 0.03 }
+  ];
   function addGlare(lum, W, H, seed, g) {
     var rnd = PM.rng.mulberry32(seed ^ 0x9e37);
     var cx = g.cx * W, cy = g.cy * H, R = g.rOuter * W;
-    for (var k = 0; k < g.glareCount; k++) {
-      var a0 = rnd() * Math.PI * 2;
-      var span = 0.10 + rnd() * 0.22;
-      var rr = (g.rAgar - 0.02 - rnd() * 0.06) * R;
+    var n = Math.min(g.glareCount, GLARES.length);
+    for (var k = 0; k < n; k++) {
+      var G = GLARES[k];
+      var a0 = G.ang + (rnd() - 0.5) * 0.2;         // чуть гуляет от сида
+      var span = G.span * (0.9 + rnd() * 0.2);
+      var rr = (g.rAgar - G.depth) * R;
       var steps = Math.ceil(span * rr * 2);
       for (var s = 0; s <= steps; s++) {
         var f = s / steps;
@@ -115,7 +128,7 @@ PM.dish = (function () {
           var y = Math.round(cy + Math.sin(th) * (rr + w));
           if (x < 0 || y < 0 || x >= W || y >= H) continue;
           var i = y * W + x;
-          lum[i] += 42 * fall * (w === 0 ? 1 : 0.45);
+          lum[i] += G.amp * fall * (w === 0 ? 1 : 0.45);
         }
       }
     }

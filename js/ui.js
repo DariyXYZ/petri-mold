@@ -28,7 +28,20 @@ PM.ui = (function () {
     b.dataset.strain = name;
     b.title = latin + ' — ' + desc;
 
-    b.appendChild(name ? PM.preview.build(name) : PM.preview.random());
+    // Свой холст на плитке: наведение — серое кольцо, выбор — белое. Оба
+    // состояния печёт preview, здесь только подмена картинки.
+    var cv = document.createElement('canvas');
+    b.appendChild(cv);
+    var hover = false;
+    b._paint = function () {
+      var lit = b.classList.contains('on') ? 2 : (hover ? 1 : 0);
+      var src = name ? PM.preview.build(name, lit) : PM.preview.random(lit);
+      if (cv.width !== src.width) { cv.width = src.width; cv.height = src.height; }
+      cv.getContext('2d').drawImage(src, 0, 0);
+    };
+    b.addEventListener('pointerenter', function () { hover = true; b._paint(); });
+    b.addEventListener('pointerleave', function () { hover = false; b._paint(); });
+    b._paint();
 
     var cap = document.createElement('span');
     cap.className = 'cap';
@@ -47,8 +60,11 @@ PM.ui = (function () {
     brush = name;
     var tiles = document.querySelectorAll('#strains .tile');
     for (var i = 0; i < tiles.length; i++) {
-      tiles[i].classList.toggle('on', tiles[i].dataset.strain === name);
-      tiles[i].setAttribute('aria-pressed', String(tiles[i].dataset.strain === name));
+      var on = tiles[i].dataset.strain === name;
+      var was = tiles[i].classList.contains('on');
+      tiles[i].classList.toggle('on', on);
+      tiles[i].setAttribute('aria-pressed', String(on));
+      if (on !== was && tiles[i]._paint) tiles[i]._paint();
     }
     el('strain-info').innerHTML = name
       ? '<b>' + PM.growth.latin(name) + '</b><br>' + PM.growth.desc(name)

@@ -1,5 +1,9 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* --k — шаг пикселя чашки на экране, ставит js/main.js. Кнопки считают от
+   него всё: кегль, рамку, отступы — и живут в той же сетке, что чашка. */
+:root { --k: 2; }
+
 /* Растровый MS Sans Serif из Windows 95 (FontStruction «lou», CC BY-SA 3.0,
    конвертация из 98.css). Нарисован под 11 px: любой другой кегль плывёт,
    поэтому кегль везде один и тот же, а сглаживание выключено. */
@@ -62,7 +66,7 @@ body.running #stage { cursor: default; }
 }
 
 #bar { display: flex; gap: 8px; justify-content: center; }
-#bar button { min-width: 132px; }
+#bar button { min-width: calc(66px * var(--k)); }
 
 /* Сводка вверху: сколько видов растёт и какие именно. Внизу остаётся
    чистое чёрное поле с чашкой. */
@@ -104,18 +108,22 @@ body.running #stage { cursor: default; }
 #brushes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 8px 6px;
 }
 
+/* Плитка — только чашка и подпись, без плашки: выбранная чашка «загорается»
+   белым кольцом, оно рисуется в самом превью (js/preview.js). */
 .tile {
   position: relative;
   display: grid;
   gap: 2px;
   justify-items: center;
-  padding: 3px 2px 4px;
-  background: #000;
-  border: 1px solid #1e1e1e;
-  border-radius: 2px;
+  padding: 2px 0 3px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: 11px;
   overflow: hidden;
 }
 .tile canvas {
@@ -130,9 +138,7 @@ body.running #stage { cursor: default; }
   text-align: center;
   word-break: break-all;
 }
-.tile:hover { border-color: #3d3d3d; }
 .tile:hover .cap { color: #8c8c8c; }
-.tile.on { border-color: #b3b3b3; }
 .tile.on .cap { color: #e6e6e6; }
 
 #strain-info {
@@ -151,7 +157,6 @@ em { font-style: normal; }
 #save, #sound-toggle {
   position: fixed;
   z-index: 30;
-  min-height: 38px;
 }
 #save { left: 12px; bottom: 12px; letter-spacing: 1px; }
 #sound-toggle { left: 12px; top: 12px; }
@@ -163,13 +168,9 @@ em { font-style: normal; }
   image-rendering: pixelated;
 }
 #bar { position: relative; z-index: 15; }
-/* плитка «случайно»: квадрат на всю ширину, в центре маленький дизерный «?» */
-.tile-random {
-  grid-column: 1 / -1;
-  aspect-ratio: 1;
-  grid-template-rows: 1fr auto;
-}
-.tile-random canvas { width: 88px; height: 88px; align-self: center; }
+/* плитка «случайно»: на всю ширину, в центре пятно-«?» */
+.tile-random { grid-column: 1 / -1; }
+.tile-random canvas { width: 88px; height: 88px; }
 button:focus-visible { outline: 1px solid #ddd; outline-offset: 3px; }
 
 h2 {
@@ -185,16 +186,27 @@ button {
   cursor: crosshair;
 }
 
+/* Кнопка в шаге пикселя чашки: рамка в один пиксель буфера, фаска в один
+   пиксель (светлая сверху-слева, чёрная снизу-справа — как у Win95), кегль
+   кратный. Тени без размытия — это те же пиксели, а не CSS-эффект. */
 button {
   background: #141414;
   color: #b3b3b3;
-  border: 1px solid #262626;
+  border: calc(1px * var(--k)) solid #262626;
   font: inherit;
-  padding: 7px 11px;
-  border-radius: 2px;
+  font-size: calc(11px * var(--k));
+  line-height: 1.2;
+  padding: calc(4px * var(--k)) calc(9px * var(--k));
+  border-radius: 0;
+  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #2e2e2e,
+              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #000;
 }
 button:hover:not(:disabled) { border-color: #4d4d4d; color: #e6e6e6; }
-button:disabled { color: #333; border-color: #1a1a1a; }
+button:active:not(:disabled) {
+  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #000,
+              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #2e2e2e;
+}
+button:disabled { color: #333; border-color: #1a1a1a; box-shadow: none; }
 
 #start { letter-spacing: 1px; }
 
@@ -243,11 +255,11 @@ button:disabled { color: #333; border-color: #1a1a1a; }
     gap: 8px;
     z-index: 15;
   }
-  #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 8px 6px; }
+  #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; }
 
-  #sound-toggle { min-height: 44px; }
+  #sound-toggle, #save { min-height: 44px; }
   /* PNG — в правом верхнем углу, напротив звука; низ целиком под палитру */
-  #save { left: auto; right: 12px; top: 12px; bottom: auto; min-height: 44px; }
+  #save { left: auto; right: 12px; top: 12px; bottom: auto; }
 
 }
 

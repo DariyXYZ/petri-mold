@@ -8,8 +8,14 @@ PM.preview = (function () {
   var TICKS = 1100;
   var cache = {};
 
-  function build(name) {
-    if (cache[name]) return cache[name];
+  // lit: 0 — покой, 1 — наведение (серое кольцо), 2 — выбран (белое кольцо).
+  // Кольцо рисуется в том же буфере и идёт через тот же дизер, а не
+  // CSS-обводкой поверх — чашка «загорается» сама.
+  var RING = [0, 128, 235];
+  function build(name, lit) {
+    lit = lit | 0;
+    var key = name + '/' + lit;
+    if (cache[key]) return cache[key];
 
     var S = SIZE;
     var f = PM.fields.create(S, S, 20260831, PM.dish.GEO);
@@ -28,7 +34,7 @@ PM.preview = (function () {
     for (var t = 0; t < TICKS; t++) PM.growth.tick(f, [c], rnd, 8);
 
     var lum = new Float32Array(S * S);
-    var cx = S / 2, cy = S / 2, rr = S * 0.5 - 1;
+    var cx = S / 2, cy = S / 2, rr = S * 0.5 - 3;   // запас под кольцо подсветки
     for (var y = 0; y < S; y++) {
       for (var x = 0; x < S; x++) {
         var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
@@ -36,6 +42,7 @@ PM.preview = (function () {
       }
     }
     PM.scene.overlay(lum, f, [c]);
+    if (lit) ring(lum, S, cx, cy, rr + 1.2, rr + 2.6, RING[lit]);
 
     var cv = document.createElement('canvas');
     cv.width = S; cv.height = S;
@@ -44,8 +51,19 @@ PM.preview = (function () {
     PM.render.blit(lum, S, S, img);
     ctx.putImageData(img, 0, 0);
 
-    cache[name] = cv;
+    cache[key] = cv;
     return cv;
+  }
+
+  // Кольцо подсветки: пиксель буфера в белый, чашка «загорается» по контуру.
+  function ring(lum, S, cx, cy, r0, r1, v) {
+    var a = r0 * r0, b = r1 * r1;
+    for (var y = 0; y < S; y++) {
+      for (var x = 0; x < S; x++) {
+        var dx = x + 0.5 - cx, dy = y + 0.5 - cy, d2 = dx * dx + dy * dy;
+        if (d2 >= a && d2 < b) lum[y * S + x] = v;
+      }
+    }
   }
 
   // Плитка «случайный штамм»: не шрифтовой знак, а маленький «?», выросший
@@ -53,8 +71,10 @@ PM.preview = (function () {
   // это и есть размытие без ctx.filter; дальше край слегка искривляется шумом
   // и всё уходит в тот же дизер, что у чашки. Размер тот же, что был у знака.
   var RS = 88;
-  function random() {
-    if (cache['?']) return cache['?'];
+  function random(lit) {
+    lit = lit | 0;
+    var key = '?/' + lit;
+    if (cache[key]) return cache[key];
     var S = RS, ss = PM.rng.smoothstep;
 
     var small = document.createElement('canvas');
@@ -81,17 +101,24 @@ PM.preview = (function () {
     bx.drawImage(small, 0, 0, S, S);
     var px = bx.getImageData(0, 0, S, S).data;
 
+    // Пятно как базовая колония: бархатное тело, светлая кайма стерильного
+    // мицелия по краю, темнее к середине, снаружи чуть пуха. Размытый глиф
+    // g заодно служит расстоянием до края: 1 в глубине, ~0.5 на контуре.
     var lum = new Float32Array(S * S);
+    var gain = [1, 1.2, 1.5][lit];       // покой / наведение / выбран
     for (var y = 0; y < S; y++) {
       for (var x = 0; x < S; x++) {
         var i = y * S + x;
-        var g = px[i * 4] / 255;                       // размытый глиф 0..1
+        var g = px[i * 4] / 255;
         if (g <= 0.01) continue;
-        // Внутри ровно, без крапа: только слегка неровный край, как у пятна
-        // плесени, и чуть неравномерная яркость. Остальную фактуру даёт дизер.
-        var m = PM.rng.fbm(x / 4, y / 4, 777, 2);
+        var m = PM.rng.fbm(x / 7, y / 7, 777, 2);
         var body = ss(0.32, 0.72, g + (m - 0.5) * 0.14);
-        lum[i] = body * 122 * (0.92 + 0.16 * m);
+        var rim = ss(0.36, 0.62, g) * (1 - ss(0.62, 0.95, g));   // кайма
+        var core = ss(0.72, 1.0, g);                            // споровый центр
+        var fur = ss(0.14, 0.34, g) * (1 - body);              // пух снаружи
+        var l = body * (100 * (0.9 + 0.2 * m) + 95 * rim - 42 * core * (0.6 + 0.4 * m))
+              + fur * 55 * m;
+        lum[i] = l * gain;
       }
     }
 
@@ -102,7 +129,7 @@ PM.preview = (function () {
     PM.render.blit(lum, S, S, img);
     ctx.putImageData(img, 0, 0);
 
-    cache['?'] = cv;
+    cache[key] = cv;
     return cv;
   }
 
