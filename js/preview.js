@@ -58,13 +58,20 @@ PM.preview = (function () {
     var S = RS, ss = PM.rng.smoothstep;
 
     var small = document.createElement('canvas');
-    small.width = small.height = 14;
+    // Глиф центрируется по фактической рамке, а не по базовой линии: у «?»
+    // крюк тяжелее точки, «middle» сажает его вкривь.
+    var SM = 22;
+    small.width = small.height = SM;
     var sx = small.getContext('2d');
-    sx.fillStyle = '#000'; sx.fillRect(0, 0, 14, 14);
+    sx.fillStyle = '#000'; sx.fillRect(0, 0, SM, SM);
     sx.fillStyle = '#fff';
-    sx.font = 'bold 16px Georgia, "Times New Roman", serif';
-    sx.textAlign = 'center'; sx.textBaseline = 'middle';
-    sx.fillText('?', 7, 7.5);
+    sx.font = 'bold 22px Georgia, "Times New Roman", serif';
+    sx.textAlign = 'left'; sx.textBaseline = 'alphabetic';
+    var mt = sx.measureText('?');
+    var gw = (mt.actualBoundingBoxLeft || 0) + (mt.actualBoundingBoxRight || mt.width);
+    var asc = mt.actualBoundingBoxAscent || 15, desc = mt.actualBoundingBoxDescent || 0;
+    sx.fillText('?', (SM - gw) / 2 + (mt.actualBoundingBoxLeft || 0),
+                (SM - asc - desc) / 2 + asc);
 
     var big = document.createElement('canvas');
     big.width = big.height = S;
@@ -82,9 +89,9 @@ PM.preview = (function () {
         if (g <= 0.01) continue;
         // Внутри ровно, без крапа: только слегка неровный край, как у пятна
         // плесени, и чуть неравномерная яркость. Остальную фактуру даёт дизер.
-        var m = PM.rng.fbm(x / 6, y / 6, 777, 2);
-        var body = ss(0.3, 0.75, g + (m - 0.5) * 0.28);
-        lum[i] = body * 122 * (0.9 + 0.2 * m);
+        var m = PM.rng.fbm(x / 4, y / 4, 777, 2);
+        var body = ss(0.32, 0.72, g + (m - 0.5) * 0.14);
+        lum[i] = body * 122 * (0.92 + 0.16 * m);
       }
     }
 
