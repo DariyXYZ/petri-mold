@@ -48,5 +48,56 @@ PM.preview = (function () {
     return cv;
   }
 
-  return { build: build, SIZE: SIZE };
+  // Плитка «случайный штамм»: не шрифтовой знак, а маленький «?», выросший
+  // как пятно плесени. Глиф рисуется мелко и растягивается со сглаживанием —
+  // это и есть размытие без ctx.filter; дальше край слегка искривляется шумом
+  // и всё уходит в тот же дизер, что у чашки. Размер тот же, что был у знака.
+  var RS = 88;
+  function random() {
+    if (cache['?']) return cache['?'];
+    var S = RS, ss = PM.rng.smoothstep;
+
+    var small = document.createElement('canvas');
+    small.width = small.height = 14;
+    var sx = small.getContext('2d');
+    sx.fillStyle = '#000'; sx.fillRect(0, 0, 14, 14);
+    sx.fillStyle = '#fff';
+    sx.font = 'bold 16px Georgia, "Times New Roman", serif';
+    sx.textAlign = 'center'; sx.textBaseline = 'middle';
+    sx.fillText('?', 7, 7.5);
+
+    var big = document.createElement('canvas');
+    big.width = big.height = S;
+    var bx = big.getContext('2d', { willReadFrequently: true });
+    bx.imageSmoothingEnabled = true;
+    bx.imageSmoothingQuality = 'high';
+    bx.drawImage(small, 0, 0, S, S);
+    var px = bx.getImageData(0, 0, S, S).data;
+
+    var lum = new Float32Array(S * S);
+    for (var y = 0; y < S; y++) {
+      for (var x = 0; x < S; x++) {
+        var i = y * S + x;
+        var g = px[i * 4] / 255;                       // размытый глиф 0..1
+        if (g <= 0.01) continue;
+        // Внутри ровно, без крапа: только слегка неровный край, как у пятна
+        // плесени, и чуть неравномерная яркость. Остальную фактуру даёт дизер.
+        var m = PM.rng.fbm(x / 6, y / 6, 777, 2);
+        var body = ss(0.3, 0.75, g + (m - 0.5) * 0.28);
+        lum[i] = body * 122 * (0.9 + 0.2 * m);
+      }
+    }
+
+    var cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    var ctx = cv.getContext('2d');
+    var img = ctx.createImageData(S, S);
+    PM.render.blit(lum, S, S, img);
+    ctx.putImageData(img, 0, 0);
+
+    cache['?'] = cv;
+    return cv;
+  }
+
+  return { build: build, random: random, SIZE: SIZE };
 })();

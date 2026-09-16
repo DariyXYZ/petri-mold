@@ -33,7 +33,7 @@ PM.app = (function () {
   }
 
   function fitDisplay() {
-    var narrow = window.innerWidth < 760;
+    var narrow = window.innerWidth <= 760;   // та же граница, что у @media в css
     // справа стоит палитра штаммов, на телефоне она уезжает вниз
     var availW = window.innerWidth - (narrow ? 14 : 250);
     var availH = window.innerHeight - (narrow ? 365 : 130);
@@ -347,6 +347,7 @@ PM.app = (function () {
 
     PM.ui.init({
       MAX_SPORES: MAX_SPORES,
+      bufferW: W,
       reseed: reseed,
       togglePause: togglePause,
       burnClean: burnClean,

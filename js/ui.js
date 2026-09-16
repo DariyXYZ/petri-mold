@@ -28,14 +28,7 @@ PM.ui = (function () {
     b.dataset.strain = name;
     b.title = latin + ' — ' + desc;
 
-    if (name) {
-      b.appendChild(PM.preview.build(name));
-    } else {
-      var q = document.createElement('span');
-      q.className = 'anymark';
-      q.textContent = '?';
-      b.appendChild(q);
-    }
+    b.appendChild(name ? PM.preview.build(name) : PM.preview.random());
 
     var cap = document.createElement('span');
     cap.className = 'cap';
@@ -122,6 +115,9 @@ PM.ui = (function () {
     // пинцет виден только пока расставляют споры
     PM.cursor.attach(el('stage'), function () {
       return api.getState() === 'inoculate';
+    }, function () {
+      // экранных точек на пиксель буфера — пинцет печётся под тот же шаг
+      return el('stage').getBoundingClientRect().width / api.bufferW;
     });
 
     var snd = el('sound-toggle');
