@@ -36,40 +36,44 @@ PM.sound = (function () {
 
   // Голос вида. q — острота резонанса (материал), grains — сколько зёрен в
   // облаке, air — доля шума над тоном, attack — насколько мягко входит звук.
+  // Тембр идёт от морфологии: чем тоньше рисунок, тем выше и звонче (узкая
+  // полоса, высокий Q — стекло); чем шире и плотнее масса, тем ниже и
+  // полнее (широкая полоса, много воздуха). Атаки короткие: звук должен
+  // идти за движением роста, а не плыть отдельно от него.
   var VOICE = {
-    // базовая плесень: тёплый деревянный резонанс, медленное дыхание
-    colony:   { freq: P.D3, q: 9,  grains: 4, spread: 380, dur: 2.4, attack: 0.5,
-                air: 0.85, gain: 0.19, every: 900 },
+    // базовая плесень: широкая тёплая масса, деревянный резонанс
+    colony:   { freq: P.D3, q: 5,  grains: 4, spread: 260, dur: 1.6, attack: 0.12,
+                air: 0.95, gain: 0.2, every: 520 },
     // мелкая россыпь: сухие капли высоко, почти без тона
-    dots:     { freq: P.E5, q: 16, grains: 3, spread: 220, dur: 0.9, attack: 0.08,
-                air: 0.95, gain: 0.06, every: 420 },
+    dots:     { freq: P.E5, q: 16, grains: 3, spread: 160, dur: 0.6, attack: 0.03,
+                air: 0.95, gain: 0.06, every: 260 },
     // мишень: низкий гулкий обертон, как удар по стеклу через воду
-    target:   { freq: P.A2, q: 6,  grains: 3, spread: 600, dur: 4.6, attack: 0.9,
-                air: 0.6,  gain: 0.2, every: 1600 },
-    // лучи: облако зёрен, расходящееся по высоте
-    starburst:{ freq: P.A4, q: 13, grains: 7, spread: 700, dur: 1.6, attack: 0.12,
-                air: 0.8,  gain: 0.1, every: 1300, arp: 1 },
+    target:   { freq: P.A2, q: 4,  grains: 3, spread: 420, dur: 3.2, attack: 0.3,
+                air: 0.7,  gain: 0.21, every: 900 },
+    // лучи: тонкие иглы — звон, облако зёрен вверх по ступеням
+    starburst:{ freq: P.A4, q: 18, grains: 7, spread: 520, dur: 1.2, attack: 0.04,
+                air: 0.75, gain: 0.1, every: 700, arp: 1 },
     // пузыри: восходящий резонанс, как воздух в жидкости
-    bubble:   { freq: P.A3, q: 14, grains: 2, spread: 160, dur: 1.5, attack: 0.1,
-                air: 0.7,  gain: 0.14, every: 800, rise: 1 },
+    bubble:   { freq: P.A3, q: 14, grains: 2, spread: 120, dur: 1.1, attack: 0.05,
+                air: 0.7,  gain: 0.14, every: 480, rise: 1 },
     // икра: очень мелкие частые капли
-    roe:      { freq: P.C5, q: 18, grains: 4, spread: 180, dur: 0.7, attack: 0.05,
-                air: 1.0,  gain: 0.056, every: 480 },
-    // ветвление: короткий сухой треск дерева
-    dendrite: { freq: P.G3, q: 7,  grains: 3, spread: 260, dur: 1.1, attack: 0.07,
-                air: 1.0,  gain: 0.088, every: 700 },
+    roe:      { freq: P.C5, q: 18, grains: 4, spread: 140, dur: 0.5, attack: 0.03,
+                air: 1.0,  gain: 0.056, every: 300 },
+    // ветвление: тонкие ветки — сухой звонкий треск
+    dendrite: { freq: P.G4, q: 12, grains: 3, spread: 200, dur: 0.8, attack: 0.03,
+                air: 1.0,  gain: 0.085, every: 420 },
     // кольцо-призрак: длинный низкий выдох
-    crater:   { freq: P.A1, q: 4,  grains: 2, spread: 900, dur: 6.5, attack: 2.0,
-                air: 0.55, gain: 0.21, every: 2800 },
-    // трещины: сухой деревянный треск, а не шорох
-    crackle:  { freq: P.D3, q: 11, grains: 4, spread: 240, dur: 0.8, attack: 0.05,
-                air: 0.9,  gain: 0.062, every: 640 },
-    // крап: мягкий шелест с опорой на ноту
-    speckle:  { freq: P.C4, q: 12, grains: 3, spread: 460, dur: 1.4, attack: 0.3,
-                air: 0.85, gain: 0.048, every: 800 },
-    // гифы: тихий высокий призвук
-    hyphal:   { freq: P.E4, q: 14, grains: 3, spread: 560, dur: 2.0, attack: 0.6,
-                air: 0.8,  gain: 0.038, every: 880 },
+    crater:   { freq: P.A1, q: 4,  grains: 2, spread: 700, dur: 4.5, attack: 0.8,
+                air: 0.6,  gain: 0.21, every: 1800 },
+    // трещины: плотный тёмный мат — низкий сухой треск
+    crackle:  { freq: P.D3, q: 6,  grains: 4, spread: 200, dur: 0.6, attack: 0.03,
+                air: 0.95, gain: 0.07, every: 400 },
+    // крап: мягкий широкий шелест с опорой на ноту
+    speckle:  { freq: P.C4, q: 7,  grains: 3, spread: 340, dur: 1.1, attack: 0.1,
+                air: 0.9,  gain: 0.05, every: 520 },
+    // гифы: тончайшее кружево — высокий тонкий звон
+    hyphal:   { freq: P.E5, q: 24, grains: 3, spread: 420, dur: 1.5, attack: 0.15,
+                air: 0.7,  gain: 0.036, every: 560 },
     // плёнка: непрерывный подклад
     film:     { freq: P.A1, drone: 1, gain: 0.075 }
   };
@@ -589,10 +593,11 @@ PM.sound = (function () {
 
     return {
       freq: v.freq * Math.pow(2, semi / 12),
-      q: v.q, spread: Math.min(420, v.spread * len), dur: Math.min(3.4, v.dur * len),
+      q: v.q, spread: Math.min(360, v.spread * len), dur: Math.min(2.8, v.dur * len),
       attack: v.attack * (len > 1 ? len * 0.8 : 1),
-      air: v.air * 0.32, tonal: v.tonal, rise: v.rise, arp: v.arp,
+      air: v.air * 0.4, tonal: v.tonal, rise: v.rise, arp: v.arp,
       gain: v.gain * weight * 1.2,
+      send: 0.38, echo: 0.14,
       grains: Math.max(1, Math.min(3, (v.grains || 3) + grains))
     };
   }
@@ -604,8 +609,8 @@ PM.sound = (function () {
     if (v.drone) { speciesDrone(c.archetype, v, panX); return; }
 
     var every = v.every / (density * Math.min(2.4, 1 + delta * 0.04));
-    if (!due(c.archetype, Math.max(420, every))) return;
-    if (!due('growth-budget', 320)) return;
+    if (!due(c.archetype, Math.max(260, every))) return;
+    if (!due('growth-budget', 170)) return;
     cloud(byScale(v, c), panX, Math.min(1.3, 0.55 + delta * 0.02));
   }
 
@@ -660,7 +665,7 @@ PM.sound = (function () {
     whoomp.frequency.exponentialRampToValueAtTime(35, t + 1.4);
     var wg = ctx.createGain();
     wg.gain.setValueAtTime(0, t);
-    wg.gain.setValueCurveAtTime(envelope(0.12, 1.8, 0.32), t, 1.8);
+    wg.gain.setValueCurveAtTime(envelope(0.12, 1.8, 0.2), t, 1.8);
     whoomp.connect(wg); wg.connect(master);
     whoomp.start(t); whoomp.stop(t + 1.9);
     whoomp.onended = function () { wg.disconnect(); };
@@ -671,7 +676,7 @@ PM.sound = (function () {
     rlp.type = 'lowpass'; rlp.frequency.value = 110; rlp.Q.value = 1.2;
     var rg = ctx.createGain();
     rg.gain.setValueAtTime(0, t);
-    rg.gain.setValueCurveAtTime(envelope(0.8, len + 1.2, 1.6), t, len + 1.2);
+    rg.gain.setValueCurveAtTime(envelope(0.8, len + 1.2, 0.9), t, len + 1.2);
     rumble.connect(rlp); rlp.connect(rg); rg.connect(master);
     rumble.start(t); rumble.stop(t + len + 1.3);
     rumble.onended = function () { rg.disconnect(); };
@@ -684,26 +689,48 @@ PM.sound = (function () {
     hbp.frequency.exponentialRampToValueAtTime(2600, t + len);
     var hg = ctx.createGain();
     hg.gain.setValueAtTime(0, t);
-    hg.gain.setValueCurveAtTime(envelope(1.0, len + 0.8, 0.2), t, len + 0.8);
+    hg.gain.setValueCurveAtTime(envelope(1.0, len + 0.8, 0.12), t, len + 0.8);
     hiss.connect(hbp); hbp.connect(hg);
     var htail = out(hg, 0, 0.7, 0.2);
     hiss.start(t); hiss.stop(t + len + 0.9);
     hiss.onended = function () { detach(htail); hg.disconnect(); };
 
-    // треск: короткие зёрна высоко, гуще к середине прохода
-    var n = 26;
+    // Потрескивание костра: много лёгких щелчков, рассыпанных по всему
+    // проходу и чуть дальше него, высота и длина гуляют. Отдельно —
+    // редкие низкие хлопки, как лопнувший уголёк.
+    var n = 70;
     for (var i = 0; i < n; i++) {
-      var when = Math.pow(Math.random(), 0.8) * len;
-      grain({ freq: 1500 + Math.random() * 2600, q: 15, dur: 0.09, attack: 0.05,
-              air: 1.0, gain: 0.07, tonal: 0, send: 0.4, echo: 0.5, free: 1 },
-            0, (Math.random() - 0.5) * 1.6, 1, when);
+      var when = Math.pow(Math.random(), 0.9) * (len + 1.2);
+      var d = 0.03 + Math.random() * 0.05;
+      grain({ freq: 1200 + Math.random() * 3200, q: 12 + Math.random() * 10,
+              dur: d, attack: Math.min(0.012, d * 0.3), air: 1.0,
+              gain: 0.018 + Math.random() * 0.022, tonal: 0,
+              send: 0.35, echo: 0.4, free: 1 },
+            0, (Math.random() - 0.5) * 1.7, 1, when);
+    }
+    for (var j = 0; j < 10; j++) {
+      grain({ freq: 260 + Math.random() * 400, q: 5, dur: 0.06, attack: 0.01,
+              air: 1.0, gain: 0.05, tonal: 0, send: 0.4, echo: 0.3, free: 1 },
+            0, (Math.random() - 0.5) * 1.2, 1, Math.random() * (len + 0.6));
     }
   }
 
   function event(kind, arch, panX) {
     if (!enabled || !ctx) return;
 
-    if (kind === 'spawn') {
+    if (kind === 'germinate') {
+      // Спора проросла: вид заявляет о себе своим голосом — облако зёрен
+      // плотнее и громче обычного, атака короткая, чтобы совпасть с началом
+      // движения. Не чаще раза в полсекунды на вид.
+      var gv = VOICE[arch];
+      if (!gv) return;
+      if (gv.drone) { speciesDrone(arch, gv, panX); return; }
+      if (!due('germ:' + arch, 500)) return;
+      cloud({ freq: gv.freq, q: gv.q, grains: Math.min(5, (gv.grains || 3) + 1),
+              spread: Math.min(gv.spread, 240), dur: gv.dur, attack: Math.min(gv.attack, 0.05),
+              air: gv.air * 0.5, rise: gv.rise, arp: gv.arp, gain: gv.gain * 1.5,
+              send: 0.45, echo: 0.2 }, panX, 1);
+    } else if (kind === 'spawn') {
       if (!due('spawn', 900 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),
            panX, 0.035, 1.6);

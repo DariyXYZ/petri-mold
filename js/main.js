@@ -19,6 +19,7 @@ PM.app = (function () {
 
   var lum, bg, img, off, offCtx, canvas, ctx, dw, dh, raf = null;
   var lastCells = {};        // сколько клеток было у колонии на прошлом кадре
+  var germinated = {};       // колонии, чей всход уже озвучен
   var lastCount = 0;         // сколько было колоний — для звука новых очагов
   var agarCells = 0;         // площадь агара в клетках — знаменатель для сцены
 
@@ -69,6 +70,7 @@ PM.app = (function () {
     colonies = [];
     nextId = 1;
     lastCells = {};
+    germinated = {};
     lastCount = 0;
     PM.sound.reset();
     PM.sound.setScene(0, 6);
@@ -176,6 +178,13 @@ PM.app = (function () {
       var delta = c.cells - was;
       lastCells[c.id] = c.cells;
       if (delta <= 0) continue;
+
+      // Всход: спора проросла и пошла в рост — вид заявляет о себе сразу,
+      // своим голосом, а не растворяется в общем фоне.
+      if (!germinated[c.id] && c.cells > 3) {
+        germinated[c.id] = 1;
+        PM.sound.event('germinate', c.archetype, (c.x / W - 0.5) * 1.7);
+      }
 
       var a = byArch[c.archetype];
       if (!a) a = byArch[c.archetype] = { sum: 0, best: 0, lead: c, weightedX: 0 };

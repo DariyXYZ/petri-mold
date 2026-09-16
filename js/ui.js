@@ -162,6 +162,7 @@ PM.ui = (function () {
       api.burnClean();
     });
     el('save').addEventListener('click', api.exportPNG);
+    PM.skin.init();
 
     document.addEventListener('keydown', function (e) {
       var t = e.target.tagName;

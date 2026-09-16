@@ -115,10 +115,8 @@ body.running #stage { cursor: default; }
   gap: 2px;
   justify-items: center;
   padding: 2px 0 3px;
-  background: transparent;
+  background: transparent !important;
   border: 0;
-  box-shadow: none !important;
-  transition: none;
   border-radius: 0;
   font-size: 11px;
   overflow: hidden;
@@ -181,36 +179,23 @@ button {
   cursor: crosshair;
 }
 
-/* Кнопка в шаге пикселя чашки: рамка в один пиксель буфера, фаска в один
-   пиксель (светлая сверху-слева, чёрная снизу-справа — как у Win95), кегль
-   кратный. Тени без размытия — это те же пиксели, а не CSS-эффект. */
-/* Наведение зажигает блик фаски (светлую грань сверху-слева), а не рамку
-   вокруг. Нажатие переворачивает фаску сразу, а обратно отпускает с
-   задержкой — кнопка «дожимается». */
+/* Фон кнопки рисует js/skin.js: рамка, фаска, сколы и пятна в шаге пикселя
+   чашки, три картинки на три состояния. Наведение зажигает грань белым
+   сразу; нажатие (.pressed, вешает skin.js) держится не меньше 220 мс. */
 button {
-  background: #141414;
+  background: #141414 var(--bg-idle) center / auto no-repeat;
+  image-rendering: pixelated;
   color: #b3b3b3;
-  border: calc(1px * var(--k)) solid #262626;
+  border: 0;
   font: inherit;
   font-size: 11px;
   line-height: 1.4;
-  padding: 7px 11px;
+  padding: calc(6px + 2px * var(--k)) calc(9px + 2px * var(--k));
   border-radius: 0;
-  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #2e2e2e,
-              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #000;
-  transition: box-shadow 0s linear 0.22s, color 0.15s;
 }
-button:hover:not(:disabled) {
-  color: #e6e6e6;
-  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #7a7a7a,
-              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #000;
-}
-button:active:not(:disabled) {
-  transition-delay: 0s;
-  box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) #000,
-              inset calc(-1px * var(--k)) calc(-1px * var(--k)) #7a7a7a;
-}
-button:disabled { color: #333; border-color: #1a1a1a; box-shadow: none; }
+button:hover:not(:disabled) { background-image: var(--bg-hover); color: #f2f2f2; }
+button.pressed:not(:disabled) { background-image: var(--bg-press); }
+button:disabled { color: #333; }
 
 
 
