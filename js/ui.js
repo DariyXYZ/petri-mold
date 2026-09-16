@@ -37,7 +37,11 @@ PM.ui = (function () {
       var lit = b.classList.contains('on') ? 2 : (hover ? 1 : 0);
       var src = name ? PM.preview.build(name, lit) : PM.preview.random(lit);
       if (cv.width !== src.width) { cv.width = src.width; cv.height = src.height; }
-      cv.getContext('2d').drawImage(src, 0, 0);
+      // фон превью прозрачный — без очистки прежнее кольцо просвечивало бы
+      // из-под нового, и подсветка «залипала»
+      var g = cv.getContext('2d');
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.drawImage(src, 0, 0);
     };
     b.addEventListener('pointerenter', function () { hover = true; b._paint(); });
     b.addEventListener('pointerleave', function () { hover = false; b._paint(); });

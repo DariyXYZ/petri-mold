@@ -15,7 +15,9 @@ PM.preview = (function () {
   // Симуляция гоняется один раз на штамм (base), варианты с кольцом —
   // копия буфера плюс кольцо. Раньше каждый вариант растил колонию заново,
   // и первое наведение подвисало на сотню миллисекунд.
-  var RING = [0, 128, 235];
+  // Тонкое серое кольцо есть у всех чашек всегда — как край стекла; наведение
+  // чуть подсвечивает его, выбор зажигает белым.
+  var RING = [104, 150, 235];
   var base = {};
   var RR = SIZE * 0.5 - 1.5;         // радиус агара; кольцо ложится на его край
   function build(name, lit) {
@@ -25,7 +27,7 @@ PM.preview = (function () {
     var S = SIZE;
     if (!base[name]) base[name] = grow(name);
     var lum = new Float32Array(base[name]);
-    if (lit) ring(lum, S, S / 2, S / 2, RR - 0.4, 1.5, RING[lit]);
+    ring(lum, S, S / 2, S / 2, RR - 0.4, lit ? 1.5 : 1.2, RING[lit]);
     cache[key] = toCanvas(lum, S);
     return cache[key];
   }
@@ -92,7 +94,7 @@ PM.preview = (function () {
   // это и есть размытие без ctx.filter; дальше край слегка искривляется шумом
   // и всё уходит в тот же дизер, что у чашки. Размер тот же, что был у знака.
   var RS = 88;
-  var qBase = null, qHalo = null;
+  var qBase = null, qHover = null, qSel = null;
   function random(lit) {
     lit = lit | 0;
     var key = '?/' + lit;
@@ -101,10 +103,11 @@ PM.preview = (function () {
     if (!qBase) glyph();
     var lum = new Float32Array(qBase);
     if (lit) {
-      // окантовка как у чашек: серая при наведении, белая при выборе
-      var v = RING[lit];
+      // наведение — тонкая ровная серая обводка; выбор — белый пушистый
+      // ореол мицелия, как у плотной колонии
+      var mask = lit === 1 ? qHover : qSel, v = lit === 1 ? 150 : 235;
       for (var i = 0; i < S * S; i++) {
-        if (qHalo[i] > 0) lum[i] = Math.max(lum[i], v * qHalo[i]);
+        if (mask[i] > 0) lum[i] = Math.max(lum[i], v * mask[i]);
       }
     }
     cache[key] = toCanvas(lum, S);
@@ -155,7 +158,8 @@ PM.preview = (function () {
     var px2 = bx.getImageData(0, 0, S, S).data;
 
     qBase = new Float32Array(S * S);
-    qHalo = new Float32Array(S * S);
+    qHover = new Float32Array(S * S);
+    qSel = new Float32Array(S * S);
     for (var y = 0; y < S; y++) {
       for (var x = 0; x < S; x++) {
         var i = y * S + x;
@@ -169,12 +173,12 @@ PM.preview = (function () {
         var core = ss(0.75, 1.0, g);
         qBase[i] = body * (128 * (0.92 + 0.16 * m) - 40 * core * (0.6 + 0.4 * m));
 
-        // Ореол: широкая плавная полоса мицелия за краем, белая у тела и
-        // сходящая на нет вдали. Волнуется только крупным шумом — без
-        // зазубрин, чтобы читалась мягко.
-        var e2 = g2 + (m - 0.5) * 0.16;
-        var halo = ss(0.02, 0.3, e2) * (1 - body);
-        qHalo[i] = Math.min(1, halo * (0.85 + 0.15 * m));
+        // Наведение: тонкая ровная полоса сразу за краем, без искривлений.
+        qHover[i] = ss(0.17, 0.3, g) * (1 - body);
+        // Выбор: широкий пушистый ореол с рваным внешним краем — мицелий,
+        // разросшийся вокруг знака.
+        var e3 = g2 + (n - 0.5) * 0.26 + (m - 0.5) * 0.2;
+        qSel[i] = Math.min(1, ss(0.02, 0.2, e3) * (1 - body) * (0.85 + 0.15 * m));
       }
     }
   }

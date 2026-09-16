@@ -317,7 +317,7 @@ PM.sound = (function () {
     // и тихая октава, вместе читаются как стекло, а не как «пик».
     var oscs = [];
     if (v.tonal !== 0) {
-      var parts = [[1, 0.3], [2, 0.07]];
+      var parts = v.soft ? [[1, 0.12]] : [[1, 0.3], [2, 0.07]];
       for (var p = 0; p < parts.length; p++) {
         var osc = ctx.createOscillator();
         osc.type = 'sine';
@@ -353,7 +353,7 @@ PM.sound = (function () {
     if (count <= 0) return;
     for (var i = 0; i < count; i++) {
       var semi = v.arp ? steps[i % steps.length]
-                       : (Math.random() < 0.45 ? steps[(Math.random() * 3) | 0] : 0);
+                       : (!v.soft && Math.random() < 0.45 ? steps[(Math.random() * 3) | 0] : 0);
       var f = v.tonal === 0
         ? v.freq * (0.8 + Math.random() * 0.5)
         : v.freq * Math.pow(2, semi / 12);
@@ -593,26 +593,78 @@ PM.sound = (function () {
 
     return {
       freq: v.freq * Math.pow(2, semi / 12),
-      q: v.q, spread: Math.min(360, v.spread * len), dur: Math.min(2.8, v.dur * len),
-      attack: v.attack * (len > 1 ? len * 0.8 : 1),
-      air: v.air * 0.4, tonal: v.tonal, rise: v.rise, arp: v.arp,
-      gain: v.gain * weight * 1.2,
-      send: 0.38, echo: 0.14,
+      q: v.q, spread: Math.min(420, v.spread * len * 1.4), dur: Math.min(3.2, v.dur * len * 1.3),
+      attack: Math.max(0.14, v.attack * 2 * (len > 1 ? len * 0.8 : 1)),
+      air: v.air * 0.5, tonal: v.tonal, rise: v.rise, soft: 1,
+      gain: v.gain * weight * 0.9,
+      send: 0.55, echo: 0.2,
       grains: Math.max(1, Math.min(3, (v.grains || 3) + grains))
     };
   }
 
   function growth(c, delta, panX) {
-    if (!enabled || !ctx || ctx.state !== 'running' || delta <= 0 || live >= MAX_VOICES - 2) return;
+    if (!enabled || !ctx || ctx.state !== 'running' || delta <= 0) return;
     var v = VOICE[c.archetype];
     if (!v) return;
     if (v.drone) { speciesDrone(c.archetype, v, panX); return; }
 
-    var every = v.every / (density * Math.min(2.4, 1 + delta * 0.04));
-    if (!due(c.archetype, Math.max(260, every))) return;
-    if (!due('growth-budget', 170)) return;
-    cloud(byScale(v, c), panX, Math.min(1.3, 0.55 + delta * 0.02));
+    breathe(c.archetype, v, delta, panX);
+    if (live >= MAX_VOICES - 2) return;
+    var every = v.every / (density * Math.min(2.0, 1 + delta * 0.03));
+    if (!due(c.archetype, Math.max(420, every * 1.5))) return;
+    if (!due('growth-budget', 260)) return;
+    cloud(byScale(v, c), panX, Math.min(1.1, 0.5 + delta * 0.015));
   }
+
+  // Дыхание вида: непрерывный шёпот шума через резонанс его голоса, громкость
+  // следует за приростом клеток и гаснет, когда рост останавливается. Это и
+  // привязывает звук к движению линий на экране: пока фронт ползёт — слышно
+  // шелест, встал — тишина. Отдельные зёрна поверх — лишь редкие акценты.
+  var breaths = {};
+  function breathe(name, v, delta, panX) {
+    var t = ctx.currentTime;
+    var b = breaths[name];
+    if (!b) {
+      var src = ctx.createBufferSource();
+      src.buffer = noiseBuf; src.loop = true;
+      src.playbackRate.value = 0.8 + Math.random() * 0.3;
+      var bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = v.freq; bp.Q.value = Math.max(2, v.q * 0.5);
+      var bp2 = ctx.createBiquadFilter();
+      bp2.type = 'bandpass'; bp2.frequency.value = v.freq * 2.01; bp2.Q.value = Math.max(2, v.q * 0.6);
+      var g = ctx.createGain(); g.gain.value = 0;
+      var g2 = ctx.createGain(); g2.gain.value = 0.35;
+      src.connect(bp); bp.connect(g);
+      src.connect(bp2); bp2.connect(g2); g2.connect(g);
+      // медленное плавание полосы: шёпот живой, не машинный
+      var lfo = ctx.createOscillator(); lfo.frequency.value = 0.07 + Math.random() * 0.06;
+      var lg = ctx.createGain(); lg.gain.value = v.freq * 0.04;
+      lfo.connect(lg); lg.connect(bp.frequency); lfo.start(t);
+      var tail = out(g, panX, 0.6, 0.1);
+      src.start(t);
+      b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.5 };
+    }
+    // уровень: насыщается по приросту, подтягивается плавно
+    var target = b.peak * Math.min(1, delta / 14);
+    b.level = target;
+    b.last = t;
+    b.gain.gain.setTargetAtTime(target, t, 0.35);
+    b.pan.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, panX)), t, 0.8);
+  }
+
+  // Гашение дыханий: вид, у которого прирост не приходил треть секунды,
+  // затихает. growth() зовётся только при приросте, поэтому нужен таймер.
+  setInterval(function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    for (var k in breaths) {
+      var b = breaths[k];
+      if (b.level > 0 && t - b.last > 0.35) {
+        b.level = 0;
+        b.gain.gain.setTargetAtTime(0, t, 0.6);
+      }
+    }
+  }, 120);
 
   // Капля в воду: синус с коротким падением высоты, почти весь в реверб.
   function drip(freq, x, gain, dur) {
@@ -665,7 +717,7 @@ PM.sound = (function () {
     whoomp.frequency.exponentialRampToValueAtTime(35, t + 1.4);
     var wg = ctx.createGain();
     wg.gain.setValueAtTime(0, t);
-    wg.gain.setValueCurveAtTime(envelope(0.12, 1.8, 0.2), t, 1.8);
+    wg.gain.setValueCurveAtTime(envelope(0.12, 1.8, 0.14), t, 1.8);
     whoomp.connect(wg); wg.connect(master);
     whoomp.start(t); whoomp.stop(t + 1.9);
     whoomp.onended = function () { wg.disconnect(); };
@@ -676,7 +728,7 @@ PM.sound = (function () {
     rlp.type = 'lowpass'; rlp.frequency.value = 110; rlp.Q.value = 1.2;
     var rg = ctx.createGain();
     rg.gain.setValueAtTime(0, t);
-    rg.gain.setValueCurveAtTime(envelope(0.8, len + 1.2, 0.9), t, len + 1.2);
+    rg.gain.setValueCurveAtTime(envelope(0.8, len + 1.2, 0.45), t, len + 1.2);
     rumble.connect(rlp); rlp.connect(rg); rg.connect(master);
     rumble.start(t); rumble.stop(t + len + 1.3);
     rumble.onended = function () { rg.disconnect(); };
@@ -689,7 +741,7 @@ PM.sound = (function () {
     hbp.frequency.exponentialRampToValueAtTime(2600, t + len);
     var hg = ctx.createGain();
     hg.gain.setValueAtTime(0, t);
-    hg.gain.setValueCurveAtTime(envelope(1.0, len + 0.8, 0.12), t, len + 0.8);
+    hg.gain.setValueCurveAtTime(envelope(1.0, len + 0.8, 0.07), t, len + 0.8);
     hiss.connect(hbp); hbp.connect(hg);
     var htail = out(hg, 0, 0.7, 0.2);
     hiss.start(t); hiss.stop(t + len + 0.9);
@@ -704,13 +756,13 @@ PM.sound = (function () {
       var d = 0.03 + Math.random() * 0.05;
       grain({ freq: 1200 + Math.random() * 3200, q: 12 + Math.random() * 10,
               dur: d, attack: Math.min(0.012, d * 0.3), air: 1.0,
-              gain: 0.018 + Math.random() * 0.022, tonal: 0,
-              send: 0.35, echo: 0.4, free: 1 },
+              gain: 0.04 + Math.random() * 0.04, tonal: 0,
+              send: 0.2, echo: 0.25, free: 1 },
             0, (Math.random() - 0.5) * 1.7, 1, when);
     }
     for (var j = 0; j < 10; j++) {
       grain({ freq: 260 + Math.random() * 400, q: 5, dur: 0.06, attack: 0.01,
-              air: 1.0, gain: 0.05, tonal: 0, send: 0.4, echo: 0.3, free: 1 },
+              air: 1.0, gain: 0.08, tonal: 0, send: 0.3, echo: 0.3, free: 1 },
             0, (Math.random() - 0.5) * 1.2, 1, Math.random() * (len + 0.6));
     }
   }
@@ -726,10 +778,10 @@ PM.sound = (function () {
       if (!gv) return;
       if (gv.drone) { speciesDrone(arch, gv, panX); return; }
       if (!due('germ:' + arch, 500)) return;
-      cloud({ freq: gv.freq, q: gv.q, grains: Math.min(5, (gv.grains || 3) + 1),
-              spread: Math.min(gv.spread, 240), dur: gv.dur, attack: Math.min(gv.attack, 0.05),
-              air: gv.air * 0.5, rise: gv.rise, arp: gv.arp, gain: gv.gain * 1.5,
-              send: 0.45, echo: 0.2 }, panX, 1);
+      cloud({ freq: gv.freq, q: gv.q, grains: Math.min(4, (gv.grains || 3) + 1),
+              spread: Math.min(gv.spread, 320), dur: gv.dur * 1.3, attack: 0.1,
+              air: gv.air * 0.6, rise: gv.rise, soft: 1, gain: gv.gain * 1.2,
+              send: 0.6, echo: 0.2 }, panX, 1);
     } else if (kind === 'spawn') {
       if (!due('spawn', 900 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),
@@ -803,6 +855,10 @@ PM.sound = (function () {
     fadeDrones(); last = {};
     if (!ctx) return;
     var t = ctx.currentTime;
+    for (var k in breaths) {
+      breaths[k].level = 0;
+      breaths[k].gain.gain.setTargetAtTime(0, t, 0.3);
+    }
     activeGrains.forEach(function (v) {
       if (v.gain.gain.cancelAndHoldAtTime) v.gain.gain.cancelAndHoldAtTime(t);
       else { v.gain.gain.cancelScheduledValues(t); v.gain.gain.setValueAtTime(v.gain.gain.value, t); }

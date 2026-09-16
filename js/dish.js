@@ -105,9 +105,9 @@ PM.dish = (function () {
   // внизу и короткая искра справа. Раньше все три были одного калибра и
   // случайно сбивались в кучу на одной стороне.
   var GLARES = [
-    { ang: -2.30, span: 0.55, amp: 44, depth: 0.02 },
-    { ang:  1.25, span: 0.20, amp: 38, depth: 0.05 },
-    { ang: -0.35, span: 0.08, amp: 32, depth: 0.03 }
+    { ang: -2.30, span: 0.32, amp: 42, depth: 0.02 },
+    { ang:  1.25, span: 0.22, amp: 38, depth: 0.05 },
+    { ang: -0.35, span: 0.15, amp: 36, depth: 0.03 }
   ];
   function addGlare(lum, W, H, seed, g) {
     var rnd = PM.rng.mulberry32(seed ^ 0x9e37);

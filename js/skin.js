@@ -35,21 +35,28 @@ PM.skin = (function () {
     var n = w * h, lum = new Float32Array(n);
     var i, x, y;
 
-    // тело: тёмный бархат с пятнистостью в две октавы
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
-      lum[y * w + x] = 20 + (PM.rng.fbm(x / 5, y / 4, seed, 2) - 0.5) * 12;
+    // Тело ровное. Пятна — два-три крупных потёка неправильной формы:
+    // мягкое поле от каждого искажается шумом, а в пиксели переводится
+    // упорядоченным дизером на два уровня чуть светлее тела. Никаких
+    // градиентов: только та же россыпь, что у чашки.
+    var B = PM.palette.BAYER4;
+    var spots = 2 + ((rnd() * 2) | 0), sp = [];
+    for (var q0 = 0; q0 < spots; q0++) {
+      sp.push({ x: 3 + rnd() * (w - 6), y: 2 + rnd() * (h - 4),
+                r: 2.5 + rnd() * Math.min(6, h * 0.45), dark: rnd() < 0.3 });
     }
-
-    // пятна: пара светлых, одно тёмное — как потёртости
-    var spots = 2 + ((rnd() * 3) | 0);
-    for (var sp = 0; sp < spots; sp++) {
-      var cx = 2 + rnd() * (w - 4), cy = 2 + rnd() * (h - 4);
-      var rad = 0.6 + rnd() * 1.5, val = rnd() < 0.65 ? 32 + rnd() * 16 : 8;
-      for (y = Math.floor(cy - rad); y <= cy + rad; y++) for (x = Math.floor(cx - rad); x <= cx + rad; x++) {
-        if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
-        var dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-        if (dx * dx + dy * dy <= rad * rad) lum[y * w + x] = val;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      var field = 0, darkest = false;
+      for (var q1 = 0; q1 < sp.length; q1++) {
+        var S0 = sp[q1];
+        var dx = x + 0.5 - S0.x, dy = (y + 0.5 - S0.y) * 1.4;
+        var rr = S0.r * (0.7 + 0.6 * PM.rng.fbm(x / 3.5, y / 3.5, seed + q1 * 97, 2));
+        var d = Math.sqrt(dx * dx + dy * dy) / rr;
+        if (d < 1) { field = Math.max(field, 1 - d); darkest = S0.dark; }
       }
+      var th = B[(y & 3) * 4 + (x & 3)] / 16;
+      var lvl = field > th ? 2 : (field > th * 0.45 ? 1 : 0);
+      lum[y * w + x] = darkest ? 20 - 5 * lvl : 20 + 5 * lvl;
     }
 
     // фаска: внутренние грани
