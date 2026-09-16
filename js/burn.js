@@ -14,20 +14,25 @@ PM.burn = (function () {
   function clamp(v) { return Math.max(0, Math.min(1, v)); }
   function smooth(v) { v = clamp(v); return v * v * (3 - 2 * v); }
 
+  // Атлас приходит data-URI (assets/fire-frames.js): картинка с диска через
+  // <img src> пятнает холст, getImageData бросает SecurityError, и без
+  // защиты промис никогда не разрешался — чашка горела вечно.
   function preload() {
     if (ready) return ready;
     ready = new Promise(function (resolve) {
       atlas = new Image();
       atlas.onload = function () {
-        var c = document.createElement('canvas');
-        c.width = SW * COUNT; c.height = SH;
-        var ctx = c.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(atlas, 0, 0);
-        pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+        try {
+          var c = document.createElement('canvas');
+          c.width = SW * COUNT; c.height = SH;
+          var ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(atlas, 0, 0);
+          pixels = ctx.getImageData(0, 0, c.width, c.height).data;
+        } catch (e) { pixels = null; ready = null; }
         resolve();
       };
       atlas.onerror = function () { ready = null; resolve(); };
-      atlas.src = 'assets/fire-frames.png';
+      atlas.src = PM.burnAtlas || 'assets/fire-frames.png';
     });
     return ready;
   }

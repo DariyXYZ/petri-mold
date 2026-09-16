@@ -1,11 +1,29 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Растровый MS Sans Serif из Windows 95 (FontStruction «lou», CC BY-SA 3.0,
+   конвертация из 98.css). Нарисован под 11 px: любой другой кегль плывёт,
+   поэтому кегль везде один и тот же, а сглаживание выключено. */
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("../assets/fonts/ms_sans_serif.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Pixelated MS Sans Serif";
+  src: url("../assets/fonts/ms_sans_serif_bold.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+}
+
 html, body {
   /* обычной стрелки в кадре не бывает: везде прицел, над чашкой — пинцет */
   cursor: crosshair;
   background: #000;
   color: #8c8c8c;
-  font: 11px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font: 11px/1.5 "Pixelated MS Sans Serif", "MS Sans Serif",
+        "Microsoft Sans Serif", Arial, sans-serif;
+  -webkit-font-smoothing: none;
   height: 100%;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
@@ -51,7 +69,7 @@ body.running #stage { cursor: default; }
 #status {
   position: fixed;
   top: 14px;
-  left: 66px;
+  left: 130px;
   right: 250px;
   z-index: 14;
   text-align: center;
@@ -59,15 +77,12 @@ body.running #stage { cursor: default; }
 }
 #phase {
   color: #8c8c8c;
-  letter-spacing: .1em;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  font-size: 10px;
 }
 #species {
   margin-top: 4px;
   color: #4d4d4d;
-  font-size: 10px;
-  font-style: italic;
   line-height: 1.5;
 }
 
@@ -98,7 +113,7 @@ body.running #stage { cursor: default; }
   gap: 2px;
   justify-items: center;
   padding: 3px 2px 4px;
-  background: #101010;
+  background: #000;
   border: 1px solid #1e1e1e;
   border-radius: 2px;
   overflow: hidden;
@@ -114,11 +129,10 @@ body.running #stage { cursor: default; }
   place-items: center;
   width: 100%;
   aspect-ratio: 1 / 1;
-  font-size: 20px;
+  font-size: 22px;
   color: #4d4d4d;
 }
 .tile .cap {
-  font-size: 9px;
   line-height: 1.2;
   color: #5a5a5a;
   text-align: center;
@@ -126,7 +140,7 @@ body.running #stage { cursor: default; }
 }
 .tile:hover { border-color: #3d3d3d; }
 .tile:hover .cap { color: #8c8c8c; }
-.tile.on { border-color: #b3b3b3; background: #161616; }
+.tile.on { border-color: #b3b3b3; }
 .tile.on .cap { color: #e6e6e6; }
 
 #strain-info {
@@ -134,11 +148,11 @@ body.running #stage { cursor: default; }
   padding-top: 10px;
   border-top: 1px solid #191919;
   color: #5a5a5a;
-  font-size: 10px;
   line-height: 1.45;
-  font-style: italic;
 }
 #strain-info b { color: #b3b3b3; font-weight: 400; }
+/* у растрового шрифта нет курсива, а синтетический наклон рвёт пиксели */
+em { font-style: normal; }
 
 /* ---------- кнопка панели ---------- */
 
@@ -147,7 +161,7 @@ body.running #stage { cursor: default; }
   z-index: 30;
   min-height: 38px;
 }
-#save { left: 12px; bottom: 12px; letter-spacing: .08em; }
+#save { left: 12px; bottom: 12px; letter-spacing: 1px; }
 #sound-toggle { left: 12px; top: 12px; }
 #fire-overlay {
   position: fixed; inset: 0;
@@ -162,12 +176,11 @@ body.running #stage { cursor: default; }
   aspect-ratio: 1;
   grid-template-rows: 1fr auto;
 }
-.tile-random .anymark { height: 100%; aspect-ratio: auto; font-size: 48px; }
+.tile-random .anymark { height: 100%; aspect-ratio: auto; font-size: 44px; }
 button:focus-visible { outline: 1px solid #ddd; outline-offset: 3px; }
 
 h2 {
-  font-size: 10px;
-  letter-spacing: .12em;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #3d3d3d;
   font-weight: 400;
@@ -190,18 +203,16 @@ button {
 button:hover:not(:disabled) { border-color: #4d4d4d; color: #e6e6e6; }
 button:disabled { color: #333; border-color: #1a1a1a; }
 
-#start { letter-spacing: .1em; }
+#start { letter-spacing: 1px; }
 
 
 /* ---------- телефон ---------- */
 
 @media (max-width: 760px), (pointer: coarse) {
-  body { font-size: 12px; }
 
   #wrap { padding: 76px 6px 282px; gap: 12px; }
 
   #status { left: 8px; right: 8px; top: 66px; }
-  #species { font-size: 9px; }
 
   /* палитра уезжает вниз и листается горизонтально */
   #strains {

@@ -86,7 +86,8 @@ PM.ui = (function () {
         return PM.growth.latin(k) + (count[k] > 1 ? ' ×' + count[k] : '');
       }).join('   ·   ');
 
-      el('phase').textContent = kinds.length + (kinds.length === 1 ? ' species ' : ' species ')
+      // пустую чашку тоже можно выжечь — «0 species» тут ни к чему
+      el('phase').textContent = (kinds.length ? kinds.length + ' species ' : '')
                               + (LABEL[st] || st) + ' · t' + api.getTick();
       el('species').textContent = list;
     }
@@ -157,9 +158,9 @@ PM.ui = (function () {
         e.preventDefault();
         if (api.getState() === 'inoculate') api.start(); else api.togglePause();
       }
-      if (e.key === 'p' || e.key === 'P') api.togglePause();
-      if (e.key === 'r' || e.key === 'R') api.burnClean();
-      if (e.key === 's' || e.key === 'S') api.exportPNG();
+      if (e.code === 'KeyP') api.togglePause();
+      if (e.code === 'KeyR') api.burnClean();
+      if (e.code === 'KeyS') api.exportPNG();
     });
   }
 

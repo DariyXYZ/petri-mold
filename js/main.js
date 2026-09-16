@@ -20,6 +20,7 @@ PM.app = (function () {
   var lum, bg, img, off, offCtx, canvas, ctx, dw, dh, raf = null;
   var lastCells = {};        // сколько клеток было у колонии на прошлом кадре
   var lastCount = 0;         // сколько было колоний — для звука новых очагов
+  var agarCells = 0;         // площадь агара в клетках — знаменатель для сцены
 
   // ---------- буферы ----------
   function allocate() {
@@ -68,6 +69,7 @@ PM.app = (function () {
     lastCells = {};
     lastCount = 0;
     PM.sound.reset();
+    PM.sound.setScene(0, 6);
     PM.burn.reset();
     if (!keepPoints) points = [];
     state = 'inoculate';
@@ -185,11 +187,28 @@ PM.app = (function () {
       PM.sound.growth(e.lead, e.sum, (e.weightedX / e.sum / W - 0.5) * 1.7);
     }
 
+    // Подклад следует за заполнением чашки: чем больше заросло, тем полнее
+    // звучит. Считаем редко — сцена всё равно меняется секундами.
+    if (fields.tick % 30 === 0) PM.sound.setScene(coverage(), 4);
+
     if (colonies.length > lastCount) {
       var fresh = colonies[colonies.length - 1];
       PM.sound.event('spawn', fresh.archetype, (fresh.x / W - 0.5) * 1.7);
     }
     lastCount = colonies.length;
+  }
+
+  // Доля занятого агара. Плёнка лежит поверх чужих клеток, поэтому её
+  // площадь не складываем с остальными — иначе сумма уходит за единицу.
+  function coverage() {
+    if (!agarCells) {
+      for (var i = 0; i < fields.n; i++) if (fields.mask[i]) agarCells++;
+    }
+    var sum = 0;
+    for (var k = 0; k < colonies.length; k++) {
+      if (colonies[k].a.layer !== 'veil') sum += colonies[k].cells;
+    }
+    return Math.min(1, sum / agarCells * 1.6);
   }
 
   function draw() {
@@ -215,7 +234,7 @@ PM.app = (function () {
     // иначе налезает на прицел
     var ring = 3.4 * (W / 192) * k;
     ctx.save();
-    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    ctx.font = '11px "Pixelated MS Sans Serif", "MS Sans Serif", Arial, sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f2f2f2';
@@ -254,8 +273,12 @@ PM.app = (function () {
     }
     state = 'burning';
     PM.sound.reset();
+    PM.sound.setScene(0, 1.5);
     PM.sound.event('fire');
-    PM.burn.start(fields, seed, function () { newCulture(false); }, beforeBurn, bg);
+    PM.burn.start(fields, seed, function () {
+      newCulture(false);
+      PM.sound.event('rebirth');
+    }, beforeBurn, bg);
     PM.ui.sync();
     loop();
   }
@@ -311,6 +334,9 @@ PM.app = (function () {
     allocate();
     PM.burn.preload();
     fitDisplay();
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('11px "Pixelated MS Sans Serif"').then(function () { draw(); });
+    }
 
     canvas.addEventListener('click', function (ev) {
       var b = canvasToBuffer(ev);
