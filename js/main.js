@@ -53,9 +53,6 @@ PM.app = (function () {
     canvas.style.height = Math.floor(H * css) + 'px';
     // шаг пикселя для интерфейса: кнопки в css считают от него
     document.documentElement.style.setProperty('--k', String(css));
-    // кегль кнопок — растровый шрифт держит только целые кратные 11 px
-    document.documentElement.style.setProperty('--kt',
-      String(Math.max(1, Math.min(2, Math.round(css)))));
   }
 
   // Фон рисуем один раз и держим копию — агар и обод не меняются.

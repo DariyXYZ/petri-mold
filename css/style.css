@@ -2,7 +2,7 @@
 
 /* --k — шаг пикселя чашки на экране, ставит js/main.js. Кнопки считают от
    него всё: кегль, рамку, отступы — и живут в той же сетке, что чашка. */
-:root { --k: 2; --kt: 2; }
+:root { --k: 2; }
 
 /* Растровый MS Sans Serif из Windows 95 (FontStruction «lou», CC BY-SA 3.0,
    конвертация из 98.css). Нарисован под 11 px: любой другой кегль плывёт,
@@ -107,7 +107,7 @@ body.running #stage { cursor: default; }
 }
 
 /* Плитка — образец плесени и подпись, без плашки. Выбор — подпись ярче
-   и четыре уголка вокруг (картинка из js/skin.js). */
+   и те же четыре уголка, что у кнопок. */
 .tile {
   position: relative;
   display: grid;
@@ -119,13 +119,17 @@ body.running #stage { cursor: default; }
   border-radius: 0;
   font-size: 11px;
   overflow: hidden;
+  /* квадрат, образец по центру — как на телефоне */
+  aspect-ratio: 1;
+  grid-template-rows: 1fr auto;
 }
-.tile:hover:not(:disabled) { background-image: none; }
-.tile.on, .tile.on:hover:not(:disabled) { background-image: var(--bg-hover); }
+.tile:hover:not(:disabled)::before { display: none; }
+.tile.on::before, .tile.on:hover:not(:disabled)::before { display: block; }
 .tile canvas {
-  width: 100%;
+  width: 48px;
   height: auto;
   display: block;
+  align-self: center;
   image-rendering: pixelated;
 }
 .tile .cap {
@@ -185,22 +189,43 @@ button {
   cursor: crosshair;
 }
 
-/* Кнопка — только надпись в шаге пикселя чашки (--kt — целый множитель
-   кегля). Наведение рисует четыре уголка (js/skin.js), нажатие (.pressed,
-   держится 220 мс) сдвигает их на пиксель внутрь. */
+/* Кнопка — только надпись. Наведение рисует четыре тонких уголка: один
+   псевдоэлемент с рамкой в 1 px, из которого маска оставляет только углы.
+   Рамка, а не картинка: браузер сажает её на пиксель экрана при любом
+   масштабе, картинка на дробной позиции размывалась. Нажатие (.pressed,
+   держит js/skin.js 220 мс) сдвигает уголки на пиксель внутрь. */
 button {
-  background: transparent var(--bg-idle) center / auto no-repeat;
-  image-rendering: pixelated;
+  position: relative;
+  background: transparent;
   color: #d9d9d9;
   border: 0;
   font: inherit;
-  font-size: calc(11px * var(--kt));
-  line-height: 1.2;
-  padding: calc(5px * var(--k)) calc(7px * var(--k));
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 9px 12px;
   border-radius: 0;
 }
-button:hover:not(:disabled) { background-image: var(--bg-hover); color: #ffffff; }
-button.pressed:not(:disabled) { background-image: var(--bg-press); }
+button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid #f2f2f2;
+  pointer-events: none;
+  display: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) 0 0 / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 0 100% / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / 7px 7px no-repeat;
+  mask:
+    linear-gradient(#000 0 0) 0 0 / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 100% 0 / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 0 100% / 7px 7px no-repeat,
+    linear-gradient(#000 0 0) 100% 100% / 7px 7px no-repeat;
+}
+button:hover:not(:disabled) { color: #ffffff; }
+button:hover:not(:disabled)::before { display: block; }
+button.pressed:not(:disabled)::before { display: block; inset: 1px; border-color: #b3b3b3; }
 button:disabled { color: #3a3a3a; }
 
 
