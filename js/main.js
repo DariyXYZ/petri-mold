@@ -85,6 +85,7 @@ PM.app = (function () {
     queue = [];
     lastCount = 0;
     PM.sound.reset();
+    PM.sound.resume();
     PM.sound.setScene(0, 6);
     PM.burn.reset();
     if (!keepPoints) points = [];
@@ -350,6 +351,7 @@ PM.app = (function () {
     }
     state = 'burning';
     PM.sound.reset();
+    PM.sound.resume();
     PM.sound.setScene(0, 1.5);
     PM.sound.event('fire');
     PM.burn.start(fields, seed, function () {
@@ -364,11 +366,12 @@ PM.app = (function () {
     if (state === 'growing' || state === 'mature') {
       resumeTo = state;
       state = 'paused';
-      PM.sound.reset();
+      PM.sound.pause();
       if (raf) { cancelAnimationFrame(raf); raf = null; }
       PM.ui.sync();
     } else if (state === 'paused') {
       state = resumeTo;
+      PM.sound.resume();
       PM.ui.sync();
       loop();
     }

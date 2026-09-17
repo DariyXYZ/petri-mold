@@ -78,7 +78,7 @@ PM.sound = (function () {
     film:     { freq: P.A1, drone: 1, gain: 0.075 }
   };
 
-  var ctx = null, master = null, revb = null, dly = null, dlyIn = null, outNode = null;
+  var ctx = null, master = null, duck = null, revb = null, dly = null, dlyIn = null, outNode = null;
   var noiseBuf = null, drones = {}, last = {};
   var live = 0, MAX_VOICES = 20;
   var activeGrains = new Set();
@@ -126,7 +126,10 @@ PM.sound = (function () {
     hp.type = 'highpass';
     hp.frequency.value = 24;
 
-    master.connect(pre); pre.connect(shaper); shaper.connect(lim);
+    // duck — плавное приглушение всего на паузе: не рвём звук, а гасим
+    duck = ctx.createGain();
+    duck.gain.value = 1;
+    master.connect(duck); duck.connect(pre); pre.connect(shaper); shaper.connect(lim);
     lim.connect(lp); lp.connect(hp);
     hp.connect(ctx.destination);
     outNode = hp;
@@ -870,20 +873,42 @@ PM.sound = (function () {
 
   // ---------- управление ----------
 
+  var offTimer = 0;
   function setEnabled(on) {
     enabled = on;
+    clearTimeout(offTimer);
     if (!on) {
-      reset();
       if (ctx) {
-        master.gain.cancelScheduledValues(ctx.currentTime);
-        master.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.6);
+        // мастер уходит экспонентой (без излома на старте и в нуле), а
+        // источники останавливаются уже в тишине — иначе щёлкало
+        var t = ctx.currentTime;
+        master.gain.cancelScheduledValues(t);
+        master.gain.setTargetAtTime(0, t, 0.12);
+        offTimer = setTimeout(reset, 600);
       }
       return;
     }
     if (!started) { started = build(); if (!started) { enabled = false; return; } }
     if (ctx.state === 'suspended') ctx.resume();
     master.gain.cancelScheduledValues(ctx.currentTime);
-    master.gain.linearRampToValueAtTime(volume, ctx.currentTime + 2.0);
+    master.gain.setTargetAtTime(volume, ctx.currentTime, 0.5);
+  }
+
+  // Пауза: всё гаснет быстро, но плавно (~0.4 с), источники дозвучивают
+  // сами в тишине. Снятие паузы — плавный подъём.
+  function pause() {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    duck.gain.cancelScheduledValues(t);
+    duck.gain.setTargetAtTime(0, t, 0.12);
+    fadeDrones(); last = {};
+    for (var k in breaths) { breaths[k].level = 0; breaths[k].gain.gain.setTargetAtTime(0, t, 0.2); }
+  }
+  function resume() {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    duck.gain.cancelScheduledValues(t);
+    duck.gain.setTargetAtTime(1, t, 0.25);
   }
 
   function reset() {
@@ -897,8 +922,8 @@ PM.sound = (function () {
     activeGrains.forEach(function (v) {
       if (v.gain.gain.cancelAndHoldAtTime) v.gain.gain.cancelAndHoldAtTime(t);
       else { v.gain.gain.cancelScheduledValues(t); v.gain.gain.setValueAtTime(v.gain.gain.value, t); }
-      v.gain.gain.linearRampToValueAtTime(0, t + 0.12);
-      v.sources.forEach(function (source) { try { source.stop(t + 0.14); } catch (e) {} });
+      v.gain.gain.setTargetAtTime(0, t, 0.06);
+      v.sources.forEach(function (source) { try { source.stop(t + 0.35); } catch (e) {} });
     });
   }
 
@@ -923,6 +948,8 @@ PM.sound = (function () {
     event: event,
     ui: ui,
     reset: reset,
+    pause: pause,
+    resume: resume,
     setScene: setScene,
     getScene: function () { return scene; },
     live: function () { return live; },
