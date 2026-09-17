@@ -176,7 +176,10 @@ PM.app = (function () {
     var byArch = {};
     for (var i = 0; i < colonies.length; i++) {
       var c = colonies[i];
-      var was = lastCells[c.id] || 0;
+      // Посевная клетка не считается ростом: иначе всход звучал бы в момент
+      // посева (у дочерних очагов — за сотни тиков до того, как они пойдут).
+      if (lastCells[c.id] === undefined) { lastCells[c.id] = c.cells; continue; }
+      var was = lastCells[c.id];
       var delta = c.cells - was;
       lastCells[c.id] = c.cells;
       if (delta <= 0) continue;

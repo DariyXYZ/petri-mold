@@ -506,7 +506,7 @@ PM.sound = (function () {
     setTarget(pad.bus.gain, 0.026 + 0.06 * k, sec);
     setTarget(pad.lp.frequency, 260 + 1900 * k, sec);
     setTarget(bed.gain.gain, 0.04 + 0.045 * k, sec);
-    setTarget(air.gain.gain, 0.016 + 0.034 * k, sec);
+    setTarget(air.gain.gain, 0.009 + 0.02 * k, sec);
   }
 
   function setScene(v, sec) {
@@ -642,7 +642,7 @@ PM.sound = (function () {
       lfo.connect(lg); lg.connect(bp.frequency); lfo.start(t);
       var tail = out(g, panX, 0.6, 0.1);
       src.start(t);
-      b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.5 };
+      b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.22 };
     }
     // уровень: насыщается по приросту, подтягивается плавно
     var target = b.peak * Math.min(1, delta / 14);
@@ -785,14 +785,14 @@ PM.sound = (function () {
       var heft = 0.5 + 0.5 * size * dens;              // 0.5 — крошка, 1 — масса
       cloud({ freq: gv.freq * (size < 0.3 ? 2 : 1), q: gv.q,
               grains: Math.min(4, (gv.grains || 3) + 1),
-              spread: Math.min(gv.spread, 260), dur: gv.dur * (0.8 + 0.6 * heft),
-              attack: 0.02 + 0.04 * heft, air: gv.air * 0.55, rise: gv.rise, soft: 1,
-              gain: gv.gain * (0.9 + 1.4 * heft),
-              send: 0.5, echo: 0.2 }, panX, 1);
+              spread: Math.min(gv.spread, 200), dur: gv.dur * (0.7 + 0.6 * heft),
+              attack: 0.01 + 0.03 * heft, air: gv.air * 0.5, rise: gv.rise,
+              gain: gv.gain * (1.6 + 2.0 * heft),
+              send: 0.35, echo: 0.15, free: 1 }, panX, 1);
     } else if (kind === 'spawn') {
-      if (!due('spawn', 900 / density)) return;
+      if (!due('spawn', 250 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),
-           panX, 0.035, 1.6);
+           panX, 0.07, 1.2);
     } else if (kind === 'fire') {
       fire(3.6);
     } else if (kind === 'mature') {
