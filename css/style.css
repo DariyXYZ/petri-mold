@@ -28,7 +28,7 @@ html, body {
   font: 11px/1.5 "Pixelated MS Sans Serif", "MS Sans Serif",
         "Microsoft Sans Serif", Arial, sans-serif;
   -webkit-font-smoothing: none;
-  letter-spacing: 2px;
+  letter-spacing: 0.1em;               /* пропорционально кеглю, везде одинаково */
   height: 100%;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
@@ -213,6 +213,8 @@ button {
   color: #d9d9d9;
   border: 0;
   font: inherit;
+  /* у кнопок браузер сбрасывает трекинг в normal — вернуть общий */
+  letter-spacing: inherit;
   font-size: 11px;
   line-height: 1.4;
   padding: 9px 12px;
