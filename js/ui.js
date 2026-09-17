@@ -56,6 +56,7 @@ PM.ui = (function () {
     b.addEventListener('click', function () {
       PM.sound.ui('select');
       select(name);
+      b.blur();          // иначе пробел «нажимает» плитку, а не запускает рост
     });
     return b;
   }
@@ -195,6 +196,12 @@ PM.ui = (function () {
     });
     el('save').addEventListener('click', api.exportPNG);
     PM.skin.init();
+
+    // кнопки не держат фокус: клавиши всегда идут к странице
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null;
+      if (b) b.blur();
+    });
 
     document.addEventListener('keydown', function (e) {
       var t = e.target.tagName;

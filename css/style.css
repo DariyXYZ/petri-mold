@@ -190,7 +190,7 @@ em { font-style: normal; }
   grid-template-rows: 1fr auto;
 }
 .tile-random canvas { width: 88px; height: 88px; align-self: center; }
-button:focus-visible { outline: 1px solid #ddd; outline-offset: 3px; }
+button:focus { outline: none; }        /* выделение — уголки, не обводка фокуса */
 
 h2 {
   color: #3d3d3d;

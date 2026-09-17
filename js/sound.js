@@ -74,8 +74,11 @@ PM.sound = (function () {
     // гифы: тончайшее кружево — высокий тонкий звон
     hyphal:   { freq: P.E5, q: 24, grains: 3, spread: 420, dur: 1.5, attack: 0.15,
                 air: 0.7,  gain: 0.036, every: 560 },
-    // плёнка: непрерывный подклад
-    film:     { freq: P.A1, drone: 1, gain: 0.075 }
+    // плёнка: широкое низкое дыхание, редкие мягкие зёрна. Раньше была
+    // дроном, который перезапускался каждым кадром роста и гудел на 55 Гц
+    // всё время, пока плёнка ползла по чашке.
+    film:     { freq: P.A2, q: 3,  grains: 2, spread: 600, dur: 3.0, attack: 0.6,
+                air: 1.0,  gain: 0.06, every: 1600 }
   };
 
   var ctx = null, master = null, duck = null, revb = null, dly = null, dlyIn = null, outNode = null;
@@ -506,9 +509,9 @@ PM.sound = (function () {
     if (!ctx) return;
     var s = Math.max(0, Math.min(1, v));
     var k = Math.pow(s, 1.4);
-    setTarget(pad.bus.gain, 0.026 + 0.06 * k, sec);
+    setTarget(pad.bus.gain, 0.024 + 0.04 * k, sec);
     setTarget(pad.lp.frequency, 260 + 1900 * k, sec);
-    setTarget(bed.gain.gain, 0.04 + 0.045 * k, sec);
+    setTarget(bed.gain.gain, 0.035 + 0.02 * k, sec);
     setTarget(air.gain.gain, 0.0045 + 0.01 * k, sec);
   }
 
