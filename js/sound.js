@@ -777,11 +777,18 @@ PM.sound = (function () {
       var gv = VOICE[arch];
       if (!gv) return;
       if (gv.drone) { speciesDrone(arch, gv, panX); return; }
-      if (!due('germ:' + arch, 500)) return;
-      cloud({ freq: gv.freq, q: gv.q, grains: Math.min(4, (gv.grains || 3) + 1),
-              spread: Math.min(gv.spread, 320), dur: gv.dur * 1.3, attack: 0.1,
-              air: gv.air * 0.6, rise: gv.rise, soft: 1, gain: gv.gain * 1.2,
-              send: 0.6, echo: 0.2 }, panX, 1);
+      if (!due('germ', 90)) return;            // каждая спора, но не залпом
+      // Характер по морфологии вида: крупные плотные — низко и громко,
+      // тонкие и мелкие — выше и тише. Атака короткая: это метка момента.
+      var A = PM.growth.ARCH[arch] || {};
+      var size = Math.min(1, A.size || 0.5), dens = (A.dens || 150) / 255;
+      var heft = 0.5 + 0.5 * size * dens;              // 0.5 — крошка, 1 — масса
+      cloud({ freq: gv.freq * (size < 0.3 ? 2 : 1), q: gv.q,
+              grains: Math.min(4, (gv.grains || 3) + 1),
+              spread: Math.min(gv.spread, 260), dur: gv.dur * (0.8 + 0.6 * heft),
+              attack: 0.02 + 0.04 * heft, air: gv.air * 0.55, rise: gv.rise, soft: 1,
+              gain: gv.gain * (0.9 + 1.4 * heft),
+              send: 0.5, echo: 0.2 }, panX, 1);
     } else if (kind === 'spawn') {
       if (!due('spawn', 900 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),

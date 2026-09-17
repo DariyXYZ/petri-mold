@@ -2,7 +2,7 @@
 
 /* --k — шаг пикселя чашки на экране, ставит js/main.js. Кнопки считают от
    него всё: кегль, рамку, отступы — и живут в той же сетке, что чашка. */
-:root { --k: 2; }
+:root { --k: 2; --dpr: 1; }
 
 /* Растровый MS Sans Serif из Windows 95 (FontStruction «lou», CC BY-SA 3.0,
    конвертация из 98.css). Нарисован под 11 px: любой другой кегль плывёт,
@@ -28,6 +28,7 @@ html, body {
   font: 11px/1.5 "Pixelated MS Sans Serif", "MS Sans Serif",
         "Microsoft Sans Serif", Arial, sans-serif;
   -webkit-font-smoothing: none;
+  letter-spacing: 1px;
   height: 100%;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;
@@ -123,8 +124,8 @@ body.running #stage { cursor: default; }
   aspect-ratio: 1;
   grid-template-rows: 1fr auto;
 }
-.tile:hover:not(:disabled)::before { display: none; }
-.tile.on::before, .tile.on:hover:not(:disabled)::before { display: block; }
+.tile:hover:not(:disabled) .corner { display: none; }
+.tile.on .corner, .tile.on:hover:not(:disabled) .corner { display: block; }
 .tile canvas {
   width: 48px;
   height: auto;
@@ -157,7 +158,18 @@ em { font-style: normal; }
 #save, #sound-toggle {
   position: fixed;
   z-index: 30;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
+#sound-toggle svg { fill: #d9d9d9; display: block; }
+#sound-toggle:hover svg { fill: #fff; }
+#sound-toggle .off { display: none; }
+#sound-toggle.off .on { display: none; }
+#sound-toggle.off .off { display: block; }
+#sound-toggle.off svg { fill: #6a6a6a; }
 #save { left: 12px; bottom: 12px; }
 #sound-toggle { left: 12px; top: 12px; }
 #fire-overlay {
@@ -205,27 +217,28 @@ button {
   padding: 9px 12px;
   border-radius: 0;
 }
-button::before {
-  content: '';
+/* Уголки: четыре спана (js/ui.js corners) с рамкой в один пиксель экрана.
+   Толщина задана в пикселях экрана (1px / dpr): css-пиксель на дробном
+   dpr сажался то в один, то в два пикселя, и плечи выходили разной толщины. */
+button .corner {
   position: absolute;
-  inset: 0;
-  border: 1px solid #f2f2f2;
+  width: 7px;
+  height: 7px;
+  border: 0 solid #f2f2f2;
   pointer-events: none;
   display: none;
-  -webkit-mask:
-    linear-gradient(#000 0 0) 0 0 / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 0 100% / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / 7px 7px no-repeat;
-  mask:
-    linear-gradient(#000 0 0) 0 0 / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 100% 0 / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 0 100% / 7px 7px no-repeat,
-    linear-gradient(#000 0 0) 100% 100% / 7px 7px no-repeat;
 }
+button .c0 { top: 0; left: 0; border-top-width: calc(1px / var(--dpr)); border-left-width: calc(1px / var(--dpr)); }
+button .c1 { top: 0; right: 0; border-top-width: calc(1px / var(--dpr)); border-right-width: calc(1px / var(--dpr)); }
+button .c2 { bottom: 0; left: 0; border-bottom-width: calc(1px / var(--dpr)); border-left-width: calc(1px / var(--dpr)); }
+button .c3 { bottom: 0; right: 0; border-bottom-width: calc(1px / var(--dpr)); border-right-width: calc(1px / var(--dpr)); }
 button:hover:not(:disabled) { color: #ffffff; }
-button:hover:not(:disabled)::before { display: block; }
-button.pressed:not(:disabled)::before { display: block; inset: 1px; border-color: #b3b3b3; }
+button:hover:not(:disabled) .corner { display: block; }
+button.pressed:not(:disabled) .corner { display: block; border-color: #b3b3b3; }
+button.pressed:not(:disabled) .c0 { top: 1px; left: 1px; }
+button.pressed:not(:disabled) .c1 { top: 1px; right: 1px; }
+button.pressed:not(:disabled) .c2 { bottom: 1px; left: 1px; }
+button.pressed:not(:disabled) .c3 { bottom: 1px; right: 1px; }
 button:disabled { color: #3a3a3a; }
 
 
@@ -277,7 +290,7 @@ button:disabled { color: #3a3a3a; }
   }
   #bar button { flex: 1 1 0; min-width: 0; min-height: 46px; }
 
-  #sound-toggle, #save { min-height: 44px; }
+  #sound-toggle, #save { width: 44px; height: 44px; }
   /* PNG — в правом верхнем углу, напротив звука; низ целиком под палитру */
   #save { left: auto; right: 12px; top: 12px; bottom: auto; }
 

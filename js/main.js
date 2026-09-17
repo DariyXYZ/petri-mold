@@ -53,6 +53,8 @@ PM.app = (function () {
     canvas.style.height = Math.floor(H * css) + 'px';
     // шаг пикселя для интерфейса: кнопки в css считают от него
     document.documentElement.style.setProperty('--k', String(css));
+    // толщина линий интерфейса — ровно один пиксель экрана
+    document.documentElement.style.setProperty('--dpr', String(window.devicePixelRatio || 1));
   }
 
   // Фон рисуем один раз и держим копию — агар и обод не меняются.
@@ -179,9 +181,10 @@ PM.app = (function () {
       lastCells[c.id] = c.cells;
       if (delta <= 0) continue;
 
-      // Всход: спора проросла и пошла в рост — вид заявляет о себе сразу,
-      // своим голосом, а не растворяется в общем фоне.
-      if (!germinated[c.id] && c.cells > 3) {
+      // Всход: первый же прирост после посева — спора проросла, и вид
+      // заявляет о себе сразу своим голосом. Так звук привязан к моменту,
+      // когда на экране что-то начало двигаться.
+      if (!germinated[c.id]) {
         germinated[c.id] = 1;
         PM.sound.event('germinate', c.archetype, (c.x / W - 0.5) * 1.7);
       }
@@ -244,8 +247,13 @@ PM.app = (function () {
     // радиус кольца в экранных точках — цифра ставится сразу за ним,
     // иначе налезает на прицел
     var ring = 3.4 * (W / 192) * k;
+    // Кегль считается от того, как буфер ляжет на экран: на узком окне буфер
+    // растягивается css-ом почти вдвое, и 11 px превращались в 22; на широком
+    // (буфер 2x) оставались 11. Целимся в 15 экранных px в обоих случаях.
+    var onScreen = (parseFloat(canvas.style.width) || dw) / dw;
+    var fs = Math.max(8, Math.round(15 / onScreen));
     ctx.save();
-    ctx.font = '11px "Pixelated MS Sans Serif", "MS Sans Serif", Arial, sans-serif';
+    ctx.font = fs + 'px "Pixelated MS Sans Serif", "MS Sans Serif", Arial, sans-serif';
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#f2f2f2';

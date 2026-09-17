@@ -77,6 +77,15 @@ PM.ui = (function () {
 
   // ---------- статус ----------
 
+  // Тики в часы: номинально 60 тиков в секунду. До минуты — секунды с
+  // десятыми, дальше мм:сс.
+  function clock(tick) {
+    var sec = tick / 60;
+    if (sec < 60) return sec.toFixed(1) + ' s';
+    var m = Math.floor(sec / 60), r = Math.floor(sec - m * 60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
   function sync() {
     var st = api.getState();
     var pts = api.getPoints().length;
@@ -101,7 +110,7 @@ PM.ui = (function () {
 
       // пустую чашку тоже можно выжечь — «0 species» тут ни к чему
       el('phase').textContent = (kinds.length ? kinds.length + ' species ' : '')
-                              + (LABEL[st] || st) + ' · t' + api.getTick();
+                              + (LABEL[st] || st) + ' · time ' + clock(api.getTick());
       el('species').textContent = list;
     }
 
@@ -128,10 +137,26 @@ PM.ui = (function () {
 
   // ---------- инициализация ----------
 
+  // Уголки выделения: четыре пустых спана с рамкой в каждой кнопке. Рамка,
+  // а не маска или картинка: рамку браузер сажает на пиксель экрана, а у
+  // маски концы плеч попадали на дробные пиксели и рисовались хвостиками.
+  function corners() {
+    var b = document.querySelectorAll('button');
+    for (var i = 0; i < b.length; i++) {
+      for (var c = 0; c < 4; c++) {
+        var sp = document.createElement('i');
+        sp.className = 'corner c' + c;
+        sp.setAttribute('aria-hidden', 'true');
+        b[i].appendChild(sp);
+      }
+    }
+  }
+
   function init(a) {
     api = a;
 
     buildBrushes();
+    corners();
     // пинцет виден только пока расставляют споры
     PM.cursor.attach(el('stage'), function () {
       return api.getState() === 'inoculate';
@@ -143,7 +168,7 @@ PM.ui = (function () {
     var snd = el('sound-toggle');
     function syncSound() {
       var on = PM.sound.isEnabled();
-      snd.textContent = on ? 'SOUND ON' : 'SOUND OFF';
+      snd.classList.toggle('off', !on);
       snd.setAttribute('aria-pressed', String(on));
       snd.title = on ? 'Turn sound off' : 'Turn sound on';
     }
