@@ -102,11 +102,12 @@ PM.ui = (function () {
         count[c.archetype] = (count[c.archetype] || 0) + 1;
       });
       var kinds = Object.keys(count);
-      // Полные латинские имена. Внутри имени и перед счётчиком — неразрывные
-      // пробелы, чтобы строка ломалась только на разделителях.
+      // Короткая латынь: «P. chrysogenum». Внутри имени и перед счётчиком —
+      // неразрывные пробелы, чтобы строка ломалась только на разделителях.
       var NB = ' ';
       var list = kinds.map(function (k) {
-        var name = PM.growth.latin(k).split(' ').join(NB);
+        var full = PM.growth.latin(k).split(' ');
+        var name = full.length > 1 ? full[0].charAt(0) + '.' + NB + full.slice(1).join(NB) : full[0];
         return name + (count[k] > 1 ? NB + '×' + count[k] : '');
       }).join(' · ');
 
