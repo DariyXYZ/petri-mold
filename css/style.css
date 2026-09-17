@@ -28,7 +28,7 @@ html, body {
   font: 11px/1.5 "Pixelated MS Sans Serif", "MS Sans Serif",
         "Microsoft Sans Serif", Arial, sans-serif;
   -webkit-font-smoothing: none;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   height: 100%;
   overflow: hidden;
   -webkit-text-size-adjust: 100%;

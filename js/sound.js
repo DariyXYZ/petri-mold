@@ -31,7 +31,7 @@ PM.sound = (function () {
     A0: n(0, -1),
     A1: n(0, 0), A2: n(0, 1), C3: n(3, 1), D3: n(5, 1), E3: n(7, 1),
     G3: n(10, 1), A3: n(0, 2), C4: n(3, 2), D4: n(5, 2), E4: n(7, 2),
-    G4: n(10, 2), A4: n(0, 3), C5: n(3, 3), E5: n(7, 3)
+    G4: n(10, 2), A4: n(0, 3), C5: n(3, 3), E5: n(7, 3), A5: n(0, 4)
   };
 
   // Голос вида. q — острота резонанса (материал), grains — сколько зёрен в
@@ -46,7 +46,7 @@ PM.sound = (function () {
                 air: 0.95, gain: 0.2, every: 520 },
     // мелкая россыпь: сухие капли высоко, почти без тона
     dots:     { freq: P.E5, q: 16, grains: 3, spread: 160, dur: 0.6, attack: 0.03,
-                air: 0.95, gain: 0.06, every: 260 },
+                air: 0.95, gain: 0.06, every: 520 },
     // мишень: низкий гулкий обертон, как удар по стеклу через воду
     target:   { freq: P.A2, q: 4,  grains: 3, spread: 420, dur: 3.2, attack: 0.3,
                 air: 0.7,  gain: 0.21, every: 900 },
@@ -57,8 +57,8 @@ PM.sound = (function () {
     bubble:   { freq: P.A3, q: 14, grains: 2, spread: 120, dur: 1.1, attack: 0.05,
                 air: 0.7,  gain: 0.14, every: 480, rise: 1 },
     // икра: очень мелкие частые капли
-    roe:      { freq: P.C5, q: 18, grains: 4, spread: 140, dur: 0.5, attack: 0.03,
-                air: 1.0,  gain: 0.056, every: 300 },
+    roe:      { freq: P.C5, q: 18, grains: 3, spread: 140, dur: 0.5, attack: 0.03,
+                air: 1.0,  gain: 0.05, every: 700 },
     // ветвление: тонкие ветки — сухой звонкий треск
     dendrite: { freq: P.G4, q: 12, grains: 3, spread: 200, dur: 0.8, attack: 0.03,
                 air: 1.0,  gain: 0.085, every: 420 },
@@ -774,13 +774,23 @@ PM.sound = (function () {
     if (!enabled || !ctx) return;
 
     if (kind === 'blob') {
-      // Капля надулась: восходящий резонанс, высота от размера — крупный
-      // пузырь ниже, мелкая икринка выше. Звучит, когда капля проступила.
-      if (!due('blob', 110)) return;
+      // Капля надулась. Крупный пузырь (cerevisiae) — восходящий резонанс,
+      // высота от размера. Икра (luteus) — капель сотни, и «пуо-пуо» на
+      // каждую выбивалось из картины: у неё редкий тихий колокольчик на
+      // ступени пентатоники, без глиссандо.
       var r = Math.max(1, Math.min(8, extra || 3));
+      if (arch === 'roe') {
+        if (!due('blob:roe', 650)) return;
+        var steps = [0, 3, 7, 10, 12];
+        var rf = P.A5 * Math.pow(2, steps[(Math.random() * steps.length) | 0] / 12);
+        grain({ freq: rf, q: 22, dur: 1.1, attack: 0.03, air: 0.35,
+                gain: 0.028, send: 0.7, echo: 0.25, free: 1 }, rf, panX, 1, 0);
+        return;
+      }
+      if (!due('blob:' + arch, 160)) return;
       var bf = P.A4 * Math.pow(2, (3 - r) / 4);
       grain({ freq: bf, q: 13, dur: 0.45 + r * 0.05, attack: 0.02, air: 0.6,
-              rise: 1, gain: 0.05 + r * 0.008, send: 0.45, echo: 0.2, free: 1 },
+              rise: 1, gain: 0.04 + r * 0.006, send: 0.5, echo: 0.2, free: 1 },
             bf, panX, 1, 0);
       return;
     }
@@ -792,7 +802,10 @@ PM.sound = (function () {
       var gv = VOICE[arch];
       if (!gv) return;
       if (gv.drone) { speciesDrone(arch, gv, panX); return; }
-      if (!due('germ', 90)) return;            // каждая спора, но не залпом
+      // каждая спора, но не залпом; у мелких видов (россыпь, икра) колоний
+      // сотни — их всходы прореживаются сильнее
+      var tiny = (PM.growth.ARCH[arch] || {}).size < 0.3;
+      if (!due('germ', 90) || !due('germ:' + arch, tiny ? 480 : 90)) return;
       // Характер по морфологии вида: крупные плотные — низко и громко,
       // тонкие и мелкие — выше и тише. Атака короткая: это метка момента.
       var A = PM.growth.ARCH[arch] || {};
