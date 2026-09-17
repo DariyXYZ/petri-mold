@@ -21,7 +21,8 @@ PM.fields = (function () {
       mottBuf: new Float32Array(n),
       cavBuf: new Float32Array(n),
       texSet: new Uint8Array(n),
-      tick: 0
+      tick: 0,
+      events: []                           // что произошло на экране за тик (см. main.voiceGrowth)
     };
 
     // питание: неровное поле, чтобы рост не был идеально круглым

@@ -342,7 +342,11 @@ PM.growth = (function () {
       b.r += b.sp * speed;
       if (b.r > b.rMax) b.r = b.rMax;
       paintBand(c, f, b, prev, b.r, dome);
-      if (b.r >= b.rMax) B.splice(k, 1);
+      if (b.r >= b.rMax) {
+        B.splice(k, 1);
+        // капля надулась — видимое событие, озвучивается снаружи
+        if (f.events) f.events.push({ kind: 'blob', x: b.x, y: b.y, r: b.rMax, arch: c.archetype });
+      }
     }
   }
 

@@ -20,6 +20,14 @@ PM.app = (function () {
   var lum, bg, img, off, offCtx, canvas, ctx, dw, dh, raf = null;
   var lastCells = {};        // сколько клеток было у колонии на прошлом кадре
   var germinated = {};       // колонии, чей всход уже озвучен
+  // Клетка становится видимой не сразу: кромка проступает за edgeFade тиков
+  // (у базовой колонии — 190, три секунды). Звук, снятый с прироста клеток,
+  // опережал картинку ровно на это время — «звук раньше роста». Поэтому
+  // прирост по видам кладётся в кольцевой буфер и читается с задержкой
+  // своего вида, а разовые события ждут в очереди до своего тика.
+  var HIST = 256;
+  var hist = {};             // вид -> { sum, x, lead } кольцевые буферы
+  var queue = [];            // отложенные события: { at, kind, arch, pan, extra }
   var lastCount = 0;         // сколько было колоний — для звука новых очагов
   var agarCells = 0;         // площадь агара в клетках — знаменатель для сцены
 
@@ -73,6 +81,8 @@ PM.app = (function () {
     nextId = 1;
     lastCells = {};
     germinated = {};
+    hist = {};
+    queue = [];
     lastCount = 0;
     PM.sound.reset();
     PM.sound.setScene(0, 6);
@@ -167,15 +177,28 @@ PM.app = (function () {
 
   // Прирост за кадр — это и есть «голос» колонии: чем быстрее растёт, тем чаще
   // подаёт звук. Панорама берётся из её положения в чашке.
+  // задержка звука за картинкой для вида: пока кромка проступает наполовину
+  function lag(arch) {
+    var A = PM.growth.ARCH[arch] || {};
+    var ef = A.edgeFade === undefined ? 26 : A.edgeFade;
+    return Math.round(ef * 0.6);
+  }
+
+  function later(kind, arch, pan, extra, delay) {
+    queue.push({ at: fields.tick + delay, kind: kind, arch: arch, pan: pan, extra: extra });
+  }
+
   function voiceGrowth() {
+    var t = fields.tick, slot = t % HIST;
 
     // Голос принадлежит ВИДУ, а не колонии: колоний бывает больше сотни, и
     // если каждая подаёт сигнал отдельно, пул голосов упирается в потолок и
     // всё превращается в кашу. Прирост складываем по виду, панораму берём
     // у самой активной его колонии — она и «ведёт» партию.
-    var byArch = {};
+    var byArch = {}, byId = {};
     for (var i = 0; i < colonies.length; i++) {
       var c = colonies[i];
+      byId[c.id] = c;
       // Посевная клетка не считается ростом: иначе всход звучал бы в момент
       // посева (у дочерних очагов — за сотни тиков до того, как они пойдут).
       if (lastCells[c.id] === undefined) { lastCells[c.id] = c.cells; continue; }
@@ -184,12 +207,11 @@ PM.app = (function () {
       lastCells[c.id] = c.cells;
       if (delta <= 0) continue;
 
-      // Всход: первый же прирост после посева — спора проросла, и вид
-      // заявляет о себе сразу своим голосом. Так звук привязан к моменту,
-      // когда на экране что-то начало двигаться.
+      // Всход: первый прирост после посева. Звучит, когда первые клетки
+      // проступят на экране, а не когда они заняты в поле.
       if (!germinated[c.id]) {
         germinated[c.id] = 1;
-        PM.sound.event('germinate', c.archetype, (c.x / W - 0.5) * 1.7);
+        later('germinate', c.archetype, (c.x / W - 0.5) * 1.7, null, lag(c.archetype));
       }
 
       var a = byArch[c.archetype];
@@ -199,16 +221,49 @@ PM.app = (function () {
       if (delta > a.best) { a.best = delta; a.lead = c; }
     }
 
+    // записать прирост этого тика по всем известным видам (нули тоже)
     for (var k in byArch) {
-      var e = byArch[k];
-      PM.sound.growth(e.lead, e.sum, (e.weightedX / e.sum / W - 0.5) * 1.7);
+      if (!hist[k]) hist[k] = { sum: new Float32Array(HIST), x: new Float32Array(HIST),
+                                lead: new Int32Array(HIST) };
+    }
+    for (var h in hist) {
+      var e = byArch[h], H = hist[h];
+      H.sum[slot] = e ? e.sum : 0;
+      H.x[slot] = e ? e.weightedX / e.sum : 0;
+      H.lead[slot] = e ? e.lead.id : 0;
+    }
+    // и прочитать с задержкой своего вида
+    for (var g in hist) {
+      var d = t - lag(g);
+      if (d < 0) continue;
+      var Hd = hist[g], sd = d % HIST;
+      if (Hd.sum[sd] <= 0) continue;
+      var lead = byId[Hd.lead[sd]];
+      if (!lead) continue;
+      PM.sound.growth(lead, Hd.sum[sd], (Hd.x[sd] / W - 0.5) * 1.7);
+    }
+
+    // события картинки из симуляции: капли и прочее
+    var ev = fields.events;
+    for (var q = 0; q < ev.length; q++) {
+      var e2 = ev[q];
+      if (e2.kind === 'blob') later('blob', e2.arch, (e2.x / W - 0.5) * 1.7, e2.r / (W / 192), 14);
+    }
+    ev.length = 0;
+
+    // отложенные события, чей тик настал
+    for (var j = queue.length - 1; j >= 0; j--) {
+      if (queue[j].at > t) continue;
+      var qe = queue[j];
+      PM.sound.event(qe.kind, qe.arch, qe.pan, qe.extra);
+      queue.splice(j, 1);
     }
 
     // Подклад следует за заполнением чашки: чем больше заросло, тем полнее
     // звучит. Считаем редко — сцена всё равно меняется секундами.
-    if (fields.tick % 30 === 0) PM.sound.setScene(coverage(), 4);
+    if (t % 30 === 0) PM.sound.setScene(coverage(), 4);
 
-    if (colonies.length > lastCount) {
+    if (colonies.length > lastCount && lastCount > 0) {
       var fresh = colonies[colonies.length - 1];
       PM.sound.event('spawn', fresh.archetype, (fresh.x / W - 0.5) * 1.7);
     }

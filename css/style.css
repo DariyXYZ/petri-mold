@@ -169,7 +169,8 @@ em { font-style: normal; }
 #sound-toggle .off { display: none; }
 #sound-toggle.off .on { display: none; }
 #sound-toggle.off .off { display: block; }
-#sound-toggle.off svg { fill: #8c8c8c; }
+#sound-toggle.off svg { fill: #6a6a6a; }
+#sound-toggle.off .off { fill: #f2f2f2; }
 #save { left: 12px; bottom: 12px; }
 #sound-toggle { left: 12px; top: 12px; }
 #fire-overlay {

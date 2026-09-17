@@ -506,7 +506,7 @@ PM.sound = (function () {
     setTarget(pad.bus.gain, 0.026 + 0.06 * k, sec);
     setTarget(pad.lp.frequency, 260 + 1900 * k, sec);
     setTarget(bed.gain.gain, 0.04 + 0.045 * k, sec);
-    setTarget(air.gain.gain, 0.009 + 0.02 * k, sec);
+    setTarget(air.gain.gain, 0.0045 + 0.01 * k, sec);
   }
 
   function setScene(v, sec) {
@@ -610,10 +610,13 @@ PM.sound = (function () {
 
     breathe(c.archetype, v, delta, panX);
     if (live >= MAX_VOICES - 2) return;
-    var every = v.every / (density * Math.min(2.0, 1 + delta * 0.03));
-    if (!due(c.archetype, Math.max(420, every * 1.5))) return;
-    if (!due('growth-budget', 260)) return;
-    cloud(byScale(v, c), panX, Math.min(1.1, 0.5 + delta * 0.015));
+    // зёрна — акценты на заметных рывках роста: чем сильнее рывок, тем чаще
+    // и громче; ровное медленное расползание слышно только как дыхание
+    if (delta < 3) return;
+    var every = v.every / (density * Math.min(2.4, 1 + delta * 0.05));
+    if (!due(c.archetype, Math.max(380, every * 1.3))) return;
+    if (!due('growth-budget', 220)) return;
+    cloud(byScale(v, c), panX, Math.min(1.2, 0.35 + delta * 0.03));
   }
 
   // Дыхание вида: непрерывный шёпот шума через резонанс его голоса, громкость
@@ -642,7 +645,7 @@ PM.sound = (function () {
       lfo.connect(lg); lg.connect(bp.frequency); lfo.start(t);
       var tail = out(g, panX, 0.6, 0.1);
       src.start(t);
-      b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.22 };
+      b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.12 };
     }
     // уровень: насыщается по приросту, подтягивается плавно
     var target = b.peak * Math.min(1, delta / 14);
@@ -767,8 +770,20 @@ PM.sound = (function () {
     }
   }
 
-  function event(kind, arch, panX) {
+  function event(kind, arch, panX, extra) {
     if (!enabled || !ctx) return;
+
+    if (kind === 'blob') {
+      // Капля надулась: восходящий резонанс, высота от размера — крупный
+      // пузырь ниже, мелкая икринка выше. Звучит, когда капля проступила.
+      if (!due('blob', 110)) return;
+      var r = Math.max(1, Math.min(8, extra || 3));
+      var bf = P.A4 * Math.pow(2, (3 - r) / 4);
+      grain({ freq: bf, q: 13, dur: 0.45 + r * 0.05, attack: 0.02, air: 0.6,
+              rise: 1, gain: 0.05 + r * 0.008, send: 0.45, echo: 0.2, free: 1 },
+            bf, panX, 1, 0);
+      return;
+    }
 
     if (kind === 'germinate') {
       // Спора проросла: вид заявляет о себе своим голосом — облако зёрен
