@@ -63,7 +63,7 @@ body.running #stage { cursor: default; }
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 78px 200px 24px 8px;
+  padding: 78px 212px 24px 8px;
 }
 
 #bar { display: flex; gap: 28px; justify-content: center; }
@@ -74,14 +74,15 @@ body.running #stage { cursor: default; }
   position: fixed;
   top: 14px;
   left: 130px;
-  right: 250px;
+  right: 262px;
   z-index: 14;
   text-align: center;
   pointer-events: none;
 }
 #phase { color: #8c8c8c; }
 #species {
-  margin-top: 4px;
+  margin: 4px auto 0;
+  max-width: 620px;                    /* не растягивать строку во весь экран */
   color: #4d4d4d;
   line-height: 1.5;
 }
@@ -92,7 +93,7 @@ body.running #stage { cursor: default; }
   position: fixed;
   top: 0; right: 0;
   z-index: 16;
-  width: 188px;
+  width: 200px;
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -137,7 +138,7 @@ body.running #stage { cursor: default; }
   line-height: 1.2;
   color: #5a5a5a;
   text-align: center;
-  word-break: break-all;
+  white-space: nowrap;
 }
 .tile:hover .cap { color: #8c8c8c; }
 .tile.on .cap { color: #f2f2f2; }

@@ -102,11 +102,13 @@ PM.ui = (function () {
         count[c.archetype] = (count[c.archetype] || 0) + 1;
       });
       var kinds = Object.keys(count);
-      // Полные латинские имена, а не эпитеты: иначе непонятно, что это виды,
-      // а не просто набор слов.
+      // Полные латинские имена. Внутри имени и перед счётчиком — неразрывные
+      // пробелы, чтобы строка ломалась только на разделителях.
+      var NB = ' ';
       var list = kinds.map(function (k) {
-        return PM.growth.latin(k) + (count[k] > 1 ? ' ×' + count[k] : '');
-      }).join('   ·   ');
+        var name = PM.growth.latin(k).split(' ').join(NB);
+        return name + (count[k] > 1 ? NB + '×' + count[k] : '');
+      }).join(' · ');
 
       // пустую чашку тоже можно выжечь — «0 species» тут ни к чему
       el('phase').textContent = (kinds.length ? kinds.length + ' species ' : '')
