@@ -303,3 +303,17 @@ button:disabled { color: #3a3a3a; }
 @media (max-height: 620px) and (pointer: coarse) {
   #species { display: none; }
 }
+
+/* ---------- загрузка ---------- */
+
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  display: grid;
+  place-items: center;
+  transition: opacity 0.45s;
+}
+#loader.out { opacity: 0; pointer-events: none; }
+#loader canvas { image-rendering: pixelated; display: block; }

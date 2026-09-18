@@ -411,6 +411,7 @@ PM.app = (function () {
     var h = location.hash.match(/seed=(\d+)/);
     if (h) seed = parseInt(h[1], 10);
 
+    PM.loader.start();
     allocate();
     PM.burn.preload();
     fitDisplay();
@@ -451,6 +452,21 @@ PM.app = (function () {
     });
 
     newCulture(false);
+
+    // Превью штаммов — двенадцать прогонов симуляции, по 50–100 мс каждый.
+    // Печём по одному между кадрами, чтобы очаг на линии загрузки полз, а
+    // не стоял; прогресс — доля готовых плиток.
+    var tiles = PM.ui.tiles(), ti = 0;
+    (function bakeNext() {
+      if (ti < tiles.length) {
+        tiles[ti]._paint();
+        ti++;
+        PM.loader.progress(ti / tiles.length);
+        setTimeout(bakeNext, 0);
+      } else {
+        PM.loader.done(function () { draw(); });
+      }
+    })();
   }
 
   // Отладка: прогнать N тиков синхронно, минуя rAF

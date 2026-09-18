@@ -91,10 +91,11 @@ PM.growth = (function () {
     // икра: плотная гроздь одинаковых мелких капель
     roe:      { latin: 'Micrococcus luteus', desc: 'tight cluster of tiny domes',
                 wN: 1.4, wD: 0.20, wP: 1.2, wR: 0.20, wC: 1.0, wI: 2.4, wB: 1.7,
-                thr: 1.55, noiseScale: 6,  useFrontier: 0.3,  useTips: 1, bubbles: 1,
+                thr: 1.55, noiseScale: 6,  useFrontier: 0.12, useTips: 1, bubbles: 1,
                 dens: 104, noiseMul: 0.80, size: 1.0, ringAmp: 0,  lobeMin: 3,  lobeMax: 7,
                 texture: 'smooth', haloB: 0, blob: 'dome',
-                blobR: [1.6, 3.2], blobGap: [3, 6] },
+                // капли мельче, шаг больше диаметра — гроздь, а не месиво
+                blobR: [1.2, 2.2], blobGap: [6, 9] },
 
 
     // тонкое ветвящееся кружево
@@ -322,6 +323,16 @@ PM.growth = (function () {
   function spawnBlob(c, f, cx, cy, rMax, rnd) {
     if (!c.blobs) c.blobs = [];
     if (c.blobs.length > 120 || rMax < 1) return;
+    // Капли не наслаиваются: новая садится только на свободный агар, и
+    // не ближе своего радиуса к уже надутой. Иначе икра сливалась в кашу.
+    if (c.a.blob === 'dome') {
+      var ci = Math.round(cy) * f.W + Math.round(cx);
+      if (ci < 0 || ci >= f.n || f.owner[ci]) return;
+      for (var q = 0; q < c.blobs.length; q++) {
+        var o = c.blobs[q], ox = o.x - cx, oy = o.y - cy;
+        if (ox * ox + oy * oy < (o.rMax + rMax) * (o.rMax + rMax)) return;
+      }
+    }
     c.blobs.push({
       x: cx, y: cy, r: 0.5, rMax: rMax,
       // Время раздувания растёт вместе с радиусом: раньше крупный пузырь

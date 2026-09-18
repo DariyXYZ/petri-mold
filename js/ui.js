@@ -45,7 +45,7 @@ PM.ui = (function () {
     };
     b.addEventListener('pointerenter', function () { hover = true; b._paint(); });
     b.addEventListener('pointerleave', function () { hover = false; b._paint(); });
-    b._paint();
+    // превью печёт загрузчик по одному (см. main.init), здесь холст пустой
 
     var cap = document.createElement('span');
     cap.className = 'cap';
@@ -218,6 +218,7 @@ PM.ui = (function () {
 
   return {
     init: init,
+    tiles: function () { return document.querySelectorAll('#strains .tile'); },
     sync: function () { if (api) sync(); },
     brush: function () { return brush || null; }
   };
