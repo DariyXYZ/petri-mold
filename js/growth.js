@@ -238,6 +238,7 @@ PM.growth = (function () {
 
   // Штраф у стенки чашки: 0 в центре, 1 вплотную к ободу
   function wallPenalty(f, x, y) {
+    if (f.noWall) return 0;              // полоса без чашки (экран загрузки)
     var cx = f.W * 0.5, cy = f.H * 0.5;
     var R = 0.436 * f.W * 0.9;
     var d = Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy)) / R;
