@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Loader lab</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  /* панель генератора поверх экрана загрузки */
+  #lab {
+    position: fixed; left: 16px; top: 16px; z-index: 200;
+    display: flex; gap: 12px; align-items: center;
+    color: #8c8c8c;
+  }
+  #lab button { padding: 6px 10px; }
+  #lab input {
+    width: 110px; background: #000; color: #f2f2f2; border: 1px solid #333;
+    font: inherit; padding: 5px 8px;
+  }
+  #lab .hint { color: #4d4d4d; }
+  #lab .ok { color: #f2f2f2; }
+</style>
+</head>
+<body>
+<div id="lab">
+  <button id="new">NEW</button>
+  <button id="replay">REPLAY</button>
+  <input id="seed" type="text" spellcheck="false">
+  <button id="go">GO</button>
+  <span id="msg" class="hint">seed определяет набор и порядок штаммов; выбери и пришли число</span>
+</div>
+
+<script src="../js/rng.js"></script>
+<script src="../js/palette.js"></script>
+<script src="../js/dish.js"></script>
+<script src="../js/fields.js"></script>
+<script src="../js/growth.js"></script>
+<script src="../js/scene.js"></script>
+<script src="../js/render.js"></script>
+<script src="../js/loader.js"></script>
+<script>
+(function () {
+  var seedEl = document.getElementById('seed'), msg = document.getElementById('msg');
+  var current = null;
+
+  function run(s) {
+    current = s;
+    seedEl.value = String(s);
+    PM.loader.stop();
+    PM.loader.start({ seed: s, loop: true });
+    msg.textContent = 'seed ' + s;
+    msg.className = 'ok';
+  }
+
+  document.getElementById('new').addEventListener('click', function () {
+    run((Math.random() * 0xffffffff) >>> 0);
+  });
+  document.getElementById('replay').addEventListener('click', function () {
+    if (current !== null) run(current);
+  });
+  document.getElementById('go').addEventListener('click', function () {
+    var v = parseInt(seedEl.value, 10);
+    if (!isNaN(v)) run(v >>> 0);
+  });
+  seedEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('go').click();
+  });
+
+  var h = location.hash.match(/seed=(\d+)/);
+  run(h ? (parseInt(h[1], 10) >>> 0) : ((Math.random() * 0xffffffff) >>> 0));
+})();
+</script>
+</body>
+</html>
