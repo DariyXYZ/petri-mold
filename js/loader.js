@@ -8,7 +8,7 @@ var PM = PM || {};
 // только один участок. Положение фронта — прогресс загрузки (превью
 // штаммов печутся по одному), но не быстрее MIN_MS.
 PM.loader = (function () {
-  var W = 220, H = 64, MID = 32;
+  var W = 110, H = 56, MID = 28;
   var TOTAL = 640;                       // тиков симуляции на весь проход
   var MIN_MS = 5200;
   var box = null, cv = null, ctx = null, img = null, lum = null, base = null;
@@ -62,15 +62,20 @@ PM.loader = (function () {
       var j = (rnd() * (k + 1)) | 0, t = pool[k]; pool[k] = pool[j]; pool[j] = t;
     }
     colonies = [];
-    var n = 6, margin = 22, span = W - margin * 2;
+    // Споры чаще шага их роста и с общим «стоп» у стыков (collisionMode
+    // stop, слабый ингибитор): колонии врастают друг в друга и полоса
+    // читается одной массой, а не цепочкой кружков.
+    var n = 9, margin = 8, span = W - margin * 2;
     for (var q = 0; q < n; q++) {
-      var fx = margin + span * (q + 0.5) / n + (rnd() - 0.5) * 10;
+      var fx = margin + span * (q + 0.5) / n + (rnd() - 0.5) * 6;
       var c = PM.growth.makeColony(q + 1, Math.round(fx), MID + ((rnd() * 5) | 0) - 2,
-                                   rnd, s, pool[q], 1);
-      c.brood = 0; c.wDrift = 0; c.greed = 1.15;
-      c.maxCells = Math.round(220 + rnd() * 260);
+                                   rnd, s, pool[q % pool.length], 1);
+      c.brood = 0; c.wDrift = 0; c.greed = 1.3;
+      c.collisionMode = 'stop';
+      c.inhibition = 0.2;
+      c.maxCells = Math.round(260 + rnd() * 240);
       // фронт доходит до x при p = (x + 30) / (W + 60); тик = p · TOTAL
-      c.delay = Math.round((c.x + 30) / (W + 60) * TOTAL) - 40;
+      c.delay = Math.max(0, Math.round((c.x + 30) / (W + 60) * TOTAL) - 60);
       PM.growth.inoculate(c, f, rnd);
       colonies.push(c);
     }
@@ -116,7 +121,7 @@ PM.loader = (function () {
     var front = -30 + (W + 60) * p;
     for (var x = 0; x < W; x++) {
       var back = front - x;
-      var w = back <= 36 ? 1 : Math.max(0, 1 - (back - 36) / 70);
+      var w = back <= 24 ? 1 : Math.max(0, 1 - (back - 24) / 50);
       if (w >= 1) continue;
       for (var y = 0; y < H; y++) {
         var i = y * W + x;
