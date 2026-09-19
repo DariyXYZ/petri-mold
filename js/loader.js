@@ -16,7 +16,7 @@ var PM = PM || {};
 PM.loader = (function () {
   var W = 110, H = 56, MID = 28;
   var TOTAL = 900;                       // тиков симуляции на весь таймлайн
-  var HOLD0 = 1100, MOVE = 4600, HOLD1 = 1300;
+  var HOLD0 = 1100, MOVE = 5200, HOLD1 = 2200;
   var D = HOLD0 + MOVE + HOLD1;
   var A = HOLD0 / D, B = HOLD1 / D;      // доли пауз в таймлайне
   var box = null, cv = null, ctx = null, img = null, lum = null, base = null;
@@ -160,25 +160,31 @@ PM.loader = (function () {
       var c = colonies[q];
       if (f.tick < c.delay) lum[Math.round(c.y) * W + Math.round(c.x)] = 0;
     }
-    // Позади фронта масса сжимается обратно к линии: видимая высота
-    // спадает с полной у фронта до тонкой полоски в сотне пикселей за ним,
-    // край сжатия рваный по шуму. Впереди колонии ещё не проросли сами.
+    // Позади фронта каждая колония растёт вспять: клетки исчезают в порядке,
+    // обратном рождению (f.birth), от последних к посевной. Порог по
+    // возрасту опускается по мере удаления фронта, а в конечной паузе фронт
+    // уходит за край, и к финалу не остаётся ничего, кроме линии.
     var p = Math.max(0, Math.min(1, (u - A) / (1 - A - B)));
     var front = -30 + (W + 60) * p;
-    // в конечной паузе фронт продолжает уходить за край: к финалу вся масса
-    // сжата в полоску, а не стоит целиком
-    if (u > 1 - B) front += (u - (1 - B)) / B * 130;
-    var ss = PM.rng.smoothstep;
-    for (var x = 0; x < W; x++) {
-      var back = front - x;
-      if (back <= 20) continue;
-      var sh = Math.max(0.12, 1 - (back - 20) / 90);
-      var lim = envX[x] * sh;
-      for (var y = 0; y < H; y++) {
-        var d = Math.abs(y - MID) + (PM.rng.fbm(x / 4, y / 4, 991, 2) - 0.5) * 3;
-        var keep = ss(lim + 1.5, lim - 1.5, d);
-        if (keep < 1) lum[y * W + x] *= keep * (0.6 + 0.4 * sh);
-      }
+    if (u > 1 - B) front += (u - (1 - B)) / B * 110;
+    var cut = [];
+    for (var q2 = 0; q2 < colonies.length; q2++) {
+      var c2 = colonies[q2];
+      // колония держится целой ещё полсотни пикселей за фронтом и только
+      // потом растёт вспять
+      var r = (front - c2.x - 48) / 80;
+      if (r <= 0) { cut[c2.id] = Infinity; continue; }
+      if (r >= 1) { cut[c2.id] = -1; continue; }
+      if (c2.alive) { c2.alive = false; c2.tips.length = 0; }
+      // порог идёт от последнего прироста к первому (тику всхода), а не к
+      // нулю: иначе колония, выросшая поздно, исчезала почти сразу
+      var last = Math.max(c2.lastGrow, c2.delay + 1);
+      cut[c2.id] = last - (last - c2.delay + 1) * r;
+    }
+    var own = f.owner, birth = f.birth;
+    for (var i2 = 0; i2 < W * H; i2++) {
+      var o = own[i2];
+      if (o && birth[i2] > cut[o]) lum[i2] = 0;
     }
     PM.render.blit(lum, W, H, img);
     for (var i = 0; i < W * H; i++) if (lum[i] <= 1) img.data[i * 4 + 3] = 0;
