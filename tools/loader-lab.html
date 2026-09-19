@@ -18,6 +18,12 @@
   }
   #lab .hint { color: #4d4d4d; }
   #lab .ok { color: #f2f2f2; }
+  #history {
+    position: fixed; left: 16px; top: 56px; z-index: 200;
+    display: flex; flex-wrap: wrap; gap: 4px 10px; max-width: 70vw;
+  }
+  #history button { padding: 4px 6px; color: #6a6a6a; }
+  #history button.cur { color: #f2f2f2; }
 </style>
 </head>
 <body>
@@ -28,6 +34,8 @@
   <button id="go">GO</button>
   <span id="msg" class="hint">seed определяет набор и порядок штаммов; выбери и пришли число</span>
 </div>
+<!-- история: все сгенерированные в этой вкладке, чтобы вернуться к любому -->
+<div id="history"></div>
 
 <script src="../js/rng.js"></script>
 <script src="../js/palette.js"></script>
@@ -42,6 +50,8 @@
   var seedEl = document.getElementById('seed'), msg = document.getElementById('msg');
   var current = null;
 
+  var hist = document.getElementById('history'), seen = {};
+
   function run(s) {
     current = s;
     seedEl.value = String(s);
@@ -49,6 +59,14 @@
     PM.loader.start({ seed: s, loop: true });
     msg.textContent = 'seed ' + s;
     msg.className = 'ok';
+    if (!seen[s]) {
+      seen[s] = document.createElement('button');
+      seen[s].textContent = String(s);
+      seen[s].addEventListener('click', function () { run(s); });
+      hist.appendChild(seen[s]);
+    }
+    var b = hist.querySelectorAll('button');
+    for (var i = 0; i < b.length; i++) b[i].classList.toggle('cur', b[i].textContent === String(s));
   }
 
   document.getElementById('new').addEventListener('click', function () {
