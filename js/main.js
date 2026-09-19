@@ -8,7 +8,7 @@ PM.app = (function () {
   var MAX_SPORES = 8;
   var MATURE_AT = 7000;    // тик, после которого рост заметно замедляется
   var DISH_SEED = 12345;   // фон чашки не зависит от seed культуры — вид всегда один
-  var LOADER_SEED = null;  // null — случайный набор штаммов на линии загрузки
+  var LOADER_SEED = 2586423673;  // выбранный набор штаммов на линии загрузки (tools/loader-lab.html)
   var seed = 12345;
   var speed = 3;
 

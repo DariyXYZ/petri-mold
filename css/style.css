@@ -319,4 +319,4 @@ button:disabled { color: #3a3a3a; }
 #loader .strip { position: relative; }
 #loader canvas { image-rendering: pixelated; display: block; position: relative; }
 /* линия — один пиксель экрана, под холстом; колонии ложатся поверх */
-#loader .line { position: absolute; left: 0; right: 0; height: 1px; background: #c8c8c8; }
+#loader .line { position: absolute; left: 0; right: 0; height: 1px; background: #5a5a5a; }
