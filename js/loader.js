@@ -20,7 +20,6 @@ PM.loader = (function () {
   var D = HOLD0 + MOVE + HOLD1;
   var A = HOLD0 / D, B = HOLD1 / D;      // доли пауз в таймлайне
   var box = null, cv = null, ctx = null, img = null, lum = null, base = null;
-  var line = null;
   var f = null, colonies = [], rnd = null, opts = {}, envX = null;
   var u = 0, target = 0, t0 = 0, finished = false, onDone = null;
 
@@ -32,14 +31,11 @@ PM.loader = (function () {
     box.id = 'loader';
     var wrap = document.createElement('div');
     wrap.className = 'strip';
-    line = document.createElement('i');
-    line.className = 'line';
     cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     ctx = cv.getContext('2d');
     img = ctx.createImageData(W, H);
     lum = new Float32Array(W * H);
-    wrap.appendChild(line);
     wrap.appendChild(cv);
     box.appendChild(wrap);
     document.body.appendChild(box);
@@ -56,7 +52,6 @@ PM.loader = (function () {
     var k = Math.max(1, Math.floor(Math.min(window.innerWidth * 0.8 / W, 3)));
     cv.style.width = (W * k) + 'px';
     cv.style.height = (H * k) + 'px';
-    line.style.top = Math.round((MID + 0.5) * k) + 'px';
   }
 
   // Полоса поля: маска — вся полоса, стенки чашки нет. Споры — штаммы из
@@ -109,7 +104,11 @@ PM.loader = (function () {
       PM.growth.inoculate(c, f, rnd);
       colonies.push(c);
     }
+    // вместо линии — точки на местах спор: по ним видно, где что взойдёт
     base = new Float32Array(W * H);
+    for (var d = 0; d < colonies.length; d++) {
+      base[Math.round(colonies[d].y) * W + Math.round(colonies[d].x)] = 150;
+    }
   }
 
   function progress(v) { target = Math.max(target, Math.min(1, v)); }
@@ -155,11 +154,6 @@ PM.loader = (function () {
   function draw() {
     lum.set(base);
     PM.scene.overlay(lum, f, colonies);
-    // непроросшие споры не показываем: точки вдоль линии выдавали бы посев
-    for (var q = 0; q < colonies.length; q++) {
-      var c = colonies[q];
-      if (f.tick < c.delay) lum[Math.round(c.y) * W + Math.round(c.x)] = 0;
-    }
     // Позади фронта каждая колония растёт вспять: клетки исчезают в порядке,
     // обратном рождению (f.birth), от последних к посевной. Порог по
     // возрасту опускается по мере удаления фронта, а в конечной паузе фронт
@@ -181,15 +175,14 @@ PM.loader = (function () {
       var last = Math.max(c2.lastGrow, c2.delay + 1);
       cut[c2.id] = last - (last - c2.delay + 1) * r;
     }
-    // Линия съедается под ростом: её левый край идёт за фронтом с
-    // отставанием, так что там, где масса уже растворяется, линии нет.
-    var kk = (parseFloat(cv.style.width) || W) / W;
-    var eat = Math.max(0, Math.min(W, front - 34));
-    line.style.left = Math.round(eat * kk) + 'px';
+    // Точки съедаются под ростом: за фронтом с отставанием их уже нет, так
+    // что там, где масса растворяется, ничего не остаётся.
+    var eat = front - 34;
     var own = f.owner, birth = f.birth;
     for (var i2 = 0; i2 < W * H; i2++) {
       var o = own[i2];
-      if (o && birth[i2] > cut[o]) lum[i2] = 0;
+      if (o) { if (birth[i2] > cut[o]) lum[i2] = 0; }
+      else if (base[i2] && (i2 % W) < eat) lum[i2] = 0;
     }
     PM.render.blit(lum, W, H, img);
     for (var i = 0; i < W * H; i++) if (lum[i] <= 1) img.data[i * 4 + 3] = 0;

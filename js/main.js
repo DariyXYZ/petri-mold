@@ -8,7 +8,9 @@ PM.app = (function () {
   var MAX_SPORES = 8;
   var MATURE_AT = 7000;    // тик, после которого рост заметно замедляется
   var DISH_SEED = 12345;   // фон чашки не зависит от seed культуры — вид всегда один
-  var LOADER_SEED = 2586423673;  // выбранный набор штаммов на линии загрузки (tools/loader-lab.html)
+  // выбранные наборы штаммов для экрана загрузки (tools/loader-lab.html);
+  // крутятся по очереди, счётчик в localStorage
+  var LOADER_SEEDS = [667451123, 1289195108, 2148973688];
   var seed = 12345;
   var speed = 3;
 
@@ -405,6 +407,15 @@ PM.app = (function () {
     };
   }
 
+  function nextLoaderSeed() {
+    var i = 0;
+    try {
+      i = (parseInt(localStorage.getItem('pm-loader'), 10) || 0) % LOADER_SEEDS.length;
+      localStorage.setItem('pm-loader', String(i + 1));
+    } catch (e) { i = (Math.random() * LOADER_SEEDS.length) | 0; }
+    return LOADER_SEEDS[i];
+  }
+
   function init() {
     canvas = document.getElementById('stage');
     ctx = canvas.getContext('2d');
@@ -412,7 +423,7 @@ PM.app = (function () {
     var h = location.hash.match(/seed=(\d+)/);
     if (h) seed = parseInt(h[1], 10);
 
-    PM.loader.start({ seed: LOADER_SEED });
+    PM.loader.start({ seed: nextLoaderSeed() });
     allocate();
     PM.burn.preload();
     fitDisplay();
