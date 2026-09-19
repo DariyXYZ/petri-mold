@@ -181,6 +181,11 @@ PM.loader = (function () {
       var last = Math.max(c2.lastGrow, c2.delay + 1);
       cut[c2.id] = last - (last - c2.delay + 1) * r;
     }
+    // Линия съедается под ростом: её левый край идёт за фронтом с
+    // отставанием, так что там, где масса уже растворяется, линии нет.
+    var kk = (parseFloat(cv.style.width) || W) / W;
+    var eat = Math.max(0, Math.min(W, front - 34));
+    line.style.left = Math.round(eat * kk) + 'px';
     var own = f.owner, birth = f.birth;
     for (var i2 = 0; i2 < W * H; i2++) {
       var o = own[i2];
