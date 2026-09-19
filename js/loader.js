@@ -21,7 +21,7 @@ PM.loader = (function () {
   var A = HOLD0 / D, B = HOLD1 / D;      // доли пауз в таймлайне
   var box = null, cv = null, ctx = null, img = null, lum = null, base = null;
   var line = null;
-  var f = null, colonies = [], rnd = null, opts = {};
+  var f = null, colonies = [], rnd = null, opts = {}, envX = null;
   var u = 0, target = 0, t0 = 0, finished = false, onDone = null;
 
   function start(o) {
@@ -73,10 +73,12 @@ PM.loader = (function () {
     // Поле — веретено: у концов узкое, к середине широкое, край чуть
     // волнистый. Колонии растут до его границы, поэтому масса сама
     // получается тонкой на концах и полной в середине.
+    envX = new Float32Array(W);
     for (var i = 0; i < f.n; i++) {
       var x = i % W, y = (i / W) | 0;
       var env = 3 + 23 * Math.pow(Math.sin(Math.PI * (x + 0.5) / W), 0.7)
               + (PM.rng.fbm(x / 9, 0.5, s + 17, 2) - 0.5) * 5;
+      envX[x] = env;
       f.mask[i] = (x > 0 && x < W - 1 && Math.abs(y - MID) < env) ? 1 : 0;
     }
     var pool = ['colony', 'target', 'starburst', 'crackle', 'hyphal',
@@ -158,15 +160,25 @@ PM.loader = (function () {
       var c = colonies[q];
       if (f.tick < c.delay) lum[Math.round(c.y) * W + Math.round(c.x)] = 0;
     }
-    // Позади фронта масса притухает, но остаётся: вес 1 у фронта, 0.45 в
-    // сотне пикселей за ним. Впереди колонии ещё не проросли сами.
+    // Позади фронта масса сжимается обратно к линии: видимая высота
+    // спадает с полной у фронта до тонкой полоски в сотне пикселей за ним,
+    // край сжатия рваный по шуму. Впереди колонии ещё не проросли сами.
     var p = Math.max(0, Math.min(1, (u - A) / (1 - A - B)));
     var front = -30 + (W + 60) * p;
+    // в конечной паузе фронт продолжает уходить за край: к финалу вся масса
+    // сжата в полоску, а не стоит целиком
+    if (u > 1 - B) front += (u - (1 - B)) / B * 130;
+    var ss = PM.rng.smoothstep;
     for (var x = 0; x < W; x++) {
       var back = front - x;
-      var w = back <= 24 ? 1 : Math.max(0.45, 1 - (back - 24) / 100);
-      if (w >= 1) continue;
-      for (var y = 0; y < H; y++) lum[y * W + x] *= w;
+      if (back <= 20) continue;
+      var sh = Math.max(0.12, 1 - (back - 20) / 90);
+      var lim = envX[x] * sh;
+      for (var y = 0; y < H; y++) {
+        var d = Math.abs(y - MID) + (PM.rng.fbm(x / 4, y / 4, 991, 2) - 0.5) * 3;
+        var keep = ss(lim + 1.5, lim - 1.5, d);
+        if (keep < 1) lum[y * W + x] *= keep * (0.6 + 0.4 * sh);
+      }
     }
     PM.render.blit(lum, W, H, img);
     for (var i = 0; i < W * H; i++) if (lum[i] <= 1) img.data[i * 4 + 3] = 0;
