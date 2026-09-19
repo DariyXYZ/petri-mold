@@ -70,9 +70,14 @@ PM.loader = (function () {
     f.scale = 1;
     f.seedBase = s;
     f.noWall = true;
+    // Поле — веретено: у концов узкое, к середине широкое, край чуть
+    // волнистый. Колонии растут до его границы, поэтому масса сама
+    // получается тонкой на концах и полной в середине.
     for (var i = 0; i < f.n; i++) {
       var x = i % W, y = (i / W) | 0;
-      f.mask[i] = (x > 0 && x < W - 1 && y > 1 && y < H - 2) ? 1 : 0;
+      var env = 3 + 23 * Math.pow(Math.sin(Math.PI * (x + 0.5) / W), 0.7)
+              + (PM.rng.fbm(x / 9, 0.5, s + 17, 2) - 0.5) * 5;
+      f.mask[i] = (x > 0 && x < W - 1 && Math.abs(y - MID) < env) ? 1 : 0;
     }
     var pool = ['colony', 'target', 'starburst', 'crackle', 'hyphal',
                 'dendrite', 'speckle', 'bubble', 'crater'];
@@ -153,13 +158,13 @@ PM.loader = (function () {
       var c = colonies[q];
       if (f.tick < c.delay) lum[Math.round(c.y) * W + Math.round(c.x)] = 0;
     }
-    // Позади фронта масса растворяется в линию: вес 1 у фронта, ноль в
-    // полусотне пикселей за ним. Впереди колонии ещё не проросли сами.
+    // Позади фронта масса притухает, но остаётся: вес 1 у фронта, 0.45 в
+    // сотне пикселей за ним. Впереди колонии ещё не проросли сами.
     var p = Math.max(0, Math.min(1, (u - A) / (1 - A - B)));
     var front = -30 + (W + 60) * p;
     for (var x = 0; x < W; x++) {
       var back = front - x;
-      var w = back <= 24 ? 1 : Math.max(0, 1 - (back - 24) / 50);
+      var w = back <= 24 ? 1 : Math.max(0.45, 1 - (back - 24) / 100);
       if (w >= 1) continue;
       for (var y = 0; y < H; y++) lum[y * W + x] *= w;
     }
