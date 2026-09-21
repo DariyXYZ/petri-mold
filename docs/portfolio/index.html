@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mold.log — Portfolio</title>
+<meta name="description" content="Darius Nazarov — portfolio: Mold.log, a browser-based generative art game about mold.">
+<link rel="icon" href="../../assets/favicon.svg">
+<style>
+@font-face { font-family: "Pixelated MS Sans Serif"; src: url("ms_sans_serif.woff2") format("woff2"); font-weight: normal; }
+@font-face { font-family: "Pixelated MS Sans Serif"; src: url("ms_sans_serif_bold.woff2") format("woff2"); font-weight: bold; }
+
+:root {
+  --bg: #000; --panel: #070707; --line: #191919;
+  --t0: #3d3d3d; --t1: #5a5a5a; --t2: #8c8c8c; --t3: #b3b3b3; --t4: #d9d9d9; --t5: #f2f2f2;
+  --fs: 11px; --ls: 0.1em;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  background: var(--bg); color: var(--t2);
+  font: var(--fs)/1.6 "Pixelated MS Sans Serif", "MS Sans Serif", "Microsoft Sans Serif", Arial, sans-serif;
+  -webkit-font-smoothing: none; font-smooth: never; letter-spacing: var(--ls);
+  cursor: crosshair;
+}
+img { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+a { color: var(--t4); text-decoration: none; border-bottom: 1px solid var(--line); }
+a:hover { color: var(--t5); border-color: var(--t2); }
+b { color: var(--t4); font-weight: 400; }
+
+/* ── page = one "record" ────────────────────────────────────── */
+.page {
+  position: relative; width: 210mm; min-height: 297mm; margin: 0 auto;
+  padding: 16mm 16mm 14mm; page-break-after: always; break-after: page;
+  border-bottom: 1px solid var(--line);
+}
+.page:last-child { border-bottom: 0; page-break-after: auto; break-after: auto; }
+
+.hud { display: flex; justify-content: space-between; color: var(--t1); text-transform: uppercase; }
+.hud .r { text-align: right; }
+.foot { position: absolute; left: 16mm; right: 16mm; bottom: 8mm; display: flex; justify-content: space-between; color: var(--t0); text-transform: uppercase; }
+
+h1, h2, h3 { font-weight: 400; font-size: var(--fs); letter-spacing: var(--ls); }
+h1 { color: var(--t5); text-transform: uppercase; }
+h2 { color: var(--t4); text-transform: uppercase; margin: 0 0 10px; }
+h2::before { content: "> "; color: var(--t1); }
+p { max-width: 118mm; margin-bottom: 10px; }
+.dim { color: var(--t1); }
+.lo { color: var(--t0); }
+
+/* corner brackets — the game's selection marks */
+.sel { position: relative; display: inline-block; padding: 6px 10px; color: var(--t5); }
+.sel::before, .sel::after { content: ""; position: absolute; width: 7px; height: 7px; border: 1px solid var(--t4); }
+.sel::before { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+.sel::after { right: 0; bottom: 0; border-left: 0; border-top: 0; }
+.sel i { position: absolute; width: 7px; height: 7px; border: 1px solid var(--t4); }
+.sel i:first-of-type { right: 0; top: 0; border-left: 0; border-bottom: 0; }
+.sel i:last-of-type { left: 0; bottom: 0; border-right: 0; border-top: 0; }
+
+/* cover */
+.cover .dish { width: 150mm; margin: 14mm auto 10mm; }
+.cover .title { text-align: center; }
+.cover .title h1 { font-size: 22px; letter-spacing: .18em; margin-bottom: 6px; }
+.cover .status { text-align: center; color: var(--t2); margin-top: 4px; }
+.cover .status .dim { display: block; }
+
+/* two-column blocks */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; align-items: start; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 6mm 0 2mm; }
+.grid4 figure { background: var(--panel); border: 1px solid var(--line); }
+.grid4 img { width: 100%; }
+figcaption { color: var(--t1); padding: 5px 8px; border-top: 1px solid var(--line); text-transform: uppercase; }
+
+/* key–value list, like the strain info panel */
+.kv { border-top: 1px solid var(--line); margin: 6mm 0; }
+.kv div { display: grid; grid-template-columns: 34mm 1fr; gap: 6mm; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.kv span:first-child { color: var(--t1); text-transform: uppercase; }
+
+/* strains — the side panel tiles */
+.strains { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 4mm 0 8mm; }
+.strains div { background: var(--panel); border: 1px solid var(--line); padding: 8px 10px; color: var(--t1); }
+.strains b { display: block; color: var(--t3); }
+
+/* table — exhibitions */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; color: var(--t1); font-weight: 400; text-transform: uppercase; padding: 6px 8px 6px 0; border-bottom: 1px solid var(--t0); }
+td { vertical-align: top; padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); color: var(--t2); }
+td:first-child { color: var(--t4); }
+
+.bar { display: flex; gap: 28px; margin-top: 8mm; text-transform: uppercase; color: var(--t4); }
+.bar span.dim { color: var(--t0); }
+
+@media screen and (max-width: 820px) {
+  .page { width: 100%; min-height: 0; padding: 24px 16px 60px; }
+  .cover .dish { width: 100%; }
+  .cols, .strains, .grid4 { grid-template-columns: 1fr 1fr; }
+  .foot { left: 16px; right: 16px; }
+}
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #000 !important; }
+  .page { border: 0; margin: 0; width: 210mm; height: 297mm; min-height: 0; overflow: hidden; }
+  a { border: 0; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+</head>
+<body>
+
+<!-- 1 · COVER -->
+<section class="page cover">
+  <div class="hud"><span>Mold.log · portfolio</span><span class="r">record 01 / 03</span></div>
+  <img class="dish" src="img/dish.jpg" alt="A virtual Petri dish with five species of digital mold after two minutes of growth">
+  <div class="title">
+    <h1>Darius Nazarov</h1>
+    <div class="status">Art &amp; Science games · media installations<span class="dim">Belgrade, Serbia · OGOxWOW Buro</span></div>
+  </div>
+  <div class="bar" style="justify-content:center"><span class="sel"><i></i><i></i>Mold.log</span><span class="dim">2026</span></div>
+  <div class="foot"><span>ogowow.buro@gmail.com</span><span>dariyxyz.github.io/petri-mold</span></div>
+</section>
+
+<!-- 2 · THE WORK -->
+<section class="page">
+  <div class="hud"><span>5 species growing · time 1:45</span><span class="r">record 02 / 03</span></div>
+  <h2 style="margin-top:8mm">Mold.log</h2>
+  <div class="cols">
+    <div>
+      <p>A browser-based generative art game. Visitors grow digital mold in a virtual Petri dish: they place spores, choose a strain, and watch the colonies branch, layer and collide as they compete for the same closed space. Each colony adds its own voice to a slowly building, polyphonic soundscape.</p>
+      <p>The image is monochrome and pixelated, like a laboratory record. The visitor can <b>pause</b> the process, <b>burn</b> the dish clean and begin again, or export any moment as a <b>PNG</b> — a unique record of one experiment. No living material is involved; the strains borrow real names and growth logics, but the work is an artistic interpretation, not a biological model.</p>
+    </div>
+    <div class="kv">
+      <div><span>Medium</span><span>Interactive digital installation / browser game. HTML5, procedural growth simulation, generative sound.</span></div>
+      <div><span>Year</span><span>2026</span></div>
+      <div><span>Duration</span><span>One growth cycle ≈ 1 min; sessions open-ended.</span></div>
+      <div><span>Setup</span><span>Computer with a browser, monitor, mouse, small speaker at low volume. No keyboard. Installs remotely from a single link; runs offline once loaded.</span></div>
+      <div><span>Play</span><span><a href="https://dariyxyz.github.io/petri-mold/">dariyxyz.github.io/petri-mold</a></span></div>
+      <div><span>Source</span><span><a href="https://github.com/DariyXYZ/petri-mold">github.com/DariyXYZ/petri-mold</a></span></div>
+    </div>
+  </div>
+
+  <div class="grid4">
+    <figure><img src="img/mold-1.jpg" alt=""><figcaption>Strain panel · placing spores</figcaption></figure>
+    <figure><img src="img/mold-2.jpg" alt=""><figcaption>S. griseus · a single colony</figcaption></figure>
+    <figure><img src="img/mold-3.jpg" alt=""><figcaption>Full dish · five species</figcaption></figure>
+    <figure><img src="img/mold-4.jpg" alt=""><figcaption>Burn · clearing the dish</figcaption></figure>
+  </div>
+
+  <div class="strains">
+    <div><b>crassa</b>Neurospora · fast branching</div>
+    <div><b>griseus</b>Streptomyces · radial rays</div>
+    <div><b>flavus</b>Aspergillus · pale mat, spores</div>
+    <div><b>mirabilis</b>Proteus · swarming rings</div>
+    <div><b>subtilis</b>Bacillus · dendrites</div>
+    <div><b>chrysogenum</b>Penicillium · velvet disc</div>
+    <div><b>epidermidis</b>Staphylococcus · bubbles</div>
+    <div><b>random</b>? · any of twelve</div>
+  </div>
+
+  <div class="bar"><span class="dim">growing…</span><span>Pause</span><span>Burn</span><span class="dim">PNG</span></div>
+  <div class="foot"><span>Mold.log · 2026</span><span>Darius Nazarov</span></div>
+</section>
+
+<!-- 3 · STATEMENT · SHOWS · CONTACT -->
+<section class="page">
+  <div class="hud"><span>Observer's notes</span><span class="r">record 03 / 03</span></div>
+  <h2 style="margin-top:8mm">Statement</h2>
+  <div class="cols">
+    <p>I studied different types of mold in courses and encounter it constantly in everyday life. I am unsettled by the invisible world that quietly consumes what surrounds us. Digitisation and gamification are personal ways of working through that feeling: by breaking a natural process down into rules and observing it closely, I can begin to make peace with it.</p>
+    <p>Mold.log gives this method a playable form. The Petri dish becomes a contained space in which fear can turn into curiosity. The image is mediated, monochrome and available for inspection; the process can be paused, cleared and approached again. That sense of control is what lets me — and, I hope, the visitor — spend time with something we would otherwise prefer not to see.</p>
+  </div>
+
+  <h2 style="margin-top:8mm">Bio</h2>
+  <p style="max-width:100%">Darius Nazarov (b. 2002) is an artist based in Belgrade, Serbia, trained in parametric architecture. His practice spans experimental Art &amp; Science games and media installations, using digital systems to explore natural processes and the emotions they provoke. He represents OGOxWOW Buro, an art collective bringing together several artists, and presents Mold.log as an individual author.</p>
+
+  <h2 style="margin-top:8mm">Exhibitions</h2>
+  <table>
+    <tr><th>Project</th><th>Year</th><th>Venue</th><th>Note</th></tr>
+    <tr><td>ExtraLives</td><td>2026</td><td>Boston Cyberarts Gallery, Boston</td><td>Playable art · Mold.log as a station</td></tr>
+    <tr><td>Video Game Artshow</td><td>2025–26</td><td>Another Corner</td><td>Group show of video-game art</td></tr>
+    <tr><td>Signal</td><td>2024</td><td>Signal festival</td><td>Media installation, festival art programme</td></tr>
+    <tr><td>Archstoyanie</td><td>2024</td><td>Nikola-Lenivets</td><td>Site-specific media installation</td></tr>
+    <tr><td>Architecton</td><td>2024</td><td>with SA Lab</td><td>Media installation</td></tr>
+  </table>
+
+  <h2 style="margin-top:10mm">Contact</h2>
+  <div class="kv" style="margin-top:0">
+    <div><span>Mail</span><span><a href="mailto:ogowow.buro@gmail.com">ogowow.buro@gmail.com</a></span></div>
+    <div><span>Phone</span><span>+7 985 884 37 27</span></div>
+    <div><span>Telegram</span><span><a href="https://t.me/dariy_nazarov">t.me/dariy_nazarov</a></span></div>
+    <div><span>Instagram</span><span><a href="https://www.instagram.com/ogowow_buro/">@ogowow_buro</a></span></div>
+    <div><span>Images</span><span><a href="https://drive.google.com/drive/folders/1zaVo7N3MKv_c3ov3awPn4IomXxDs-FVz">screenshots &amp; gameplay teaser</a></span></div>
+  </div>
+  <div class="foot"><span>end of record</span><span>Darius Nazarov · 2026</span></div>
+</section>
+
+</body>
+</html>
