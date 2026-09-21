@@ -67,6 +67,9 @@ p { max-width: 118mm; margin-bottom: 10px; }
 /* two-column blocks */
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; align-items: start; }
 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 6mm 0 2mm; }
+.shots { display: grid; grid-template-columns: 1fr; gap: 6mm; margin: 8mm 0 0; }
+.shots figure { background: var(--panel); border: 1px solid var(--line); }
+.shots img { width: 100%; }
 .grid4 figure { background: var(--panel); border: 1px solid var(--line); }
 .grid4 img { width: 100%; }
 figcaption { color: var(--t1); padding: 5px 8px; border-top: 1px solid var(--line); text-transform: uppercase; }
@@ -109,7 +112,7 @@ td:first-child { color: var(--t4); }
 
 <!-- 1 · COVER -->
 <section class="page cover">
-  <div class="hud"><span>Mold.log · portfolio</span><span class="r">record 01 / 03</span></div>
+  <div class="hud"><span>Mold.log · portfolio</span><span class="r">record 01 / 05</span></div>
   <img class="dish" src="img/dish.jpg" alt="A virtual Petri dish with five species of digital mold after two minutes of growth">
   <div class="title">
     <h1>Darius Nazarov</h1>
@@ -121,7 +124,7 @@ td:first-child { color: var(--t4); }
 
 <!-- 2 · THE WORK -->
 <section class="page">
-  <div class="hud"><span>5 species growing · time 1:45</span><span class="r">record 02 / 03</span></div>
+  <div class="hud"><span>5 species growing · time 1:45</span><span class="r">record 02 / 05</span></div>
   <h2 style="margin-top:8mm">Mold.log</h2>
   <div class="cols">
     <div>
@@ -136,13 +139,6 @@ td:first-child { color: var(--t4); }
       <div><span>Play</span><span><a href="https://dariyxyz.github.io/petri-mold/">dariyxyz.github.io/petri-mold</a></span></div>
       <div><span>Source</span><span><a href="https://github.com/DariyXYZ/petri-mold">github.com/DariyXYZ/petri-mold</a></span></div>
     </div>
-  </div>
-
-  <div class="grid4">
-    <figure><img src="img/mold-1.jpg" alt=""><figcaption>Strain panel · placing spores</figcaption></figure>
-    <figure><img src="img/mold-2.jpg" alt=""><figcaption>S. griseus · a single colony</figcaption></figure>
-    <figure><img src="img/mold-3.jpg" alt=""><figcaption>Full dish · five species</figcaption></figure>
-    <figure><img src="img/mold-4.jpg" alt=""><figcaption>Burn · clearing the dish</figcaption></figure>
   </div>
 
   <div class="strains">
@@ -160,9 +156,29 @@ td:first-child { color: var(--t4); }
   <div class="foot"><span>Mold.log · 2026</span><span>Darius Nazarov</span></div>
 </section>
 
-<!-- 3 · STATEMENT · SHOWS · CONTACT -->
+<!-- 3 · RECORDS I -->
 <section class="page">
-  <div class="hud"><span>Observer's notes</span><span class="r">record 03 / 03</span></div>
+  <div class="hud"><span>Records · placing spores</span><span class="r">record 03 / 05</span></div>
+  <div class="shots">
+    <figure><img src="img/mold-1.jpg" alt=""><figcaption>Strain panel · placing spores with the tweezers</figcaption></figure>
+    <figure><img src="img/mold-3.jpg" alt=""><figcaption>Full dish · five species after 1:45</figcaption></figure>
+  </div>
+  <div class="foot"><span>Mold.log · 2026</span><span>Darius Nazarov</span></div>
+</section>
+
+<!-- 4 · RECORDS II -->
+<section class="page">
+  <div class="hud"><span>Records · burn</span><span class="r">record 04 / 05</span></div>
+  <div class="shots">
+    <figure><img src="img/mold-2.jpg" alt=""><figcaption>S. griseus · a single colony, radial rays</figcaption></figure>
+    <figure><img src="img/mold-4.jpg" alt=""><figcaption>Burn · six species burning off at 57 s</figcaption></figure>
+  </div>
+  <div class="foot"><span>Mold.log · 2026</span><span>Darius Nazarov</span></div>
+</section>
+
+<!-- 5 · STATEMENT · SHOWS · CONTACT -->
+<section class="page">
+  <div class="hud"><span>Observer's notes</span><span class="r">record 05 / 05</span></div>
   <h2 style="margin-top:8mm">Statement</h2>
   <div class="cols">
     <p>I studied different types of mold in courses and encounter it constantly in everyday life. I am unsettled by the invisible world that quietly consumes what surrounds us. Digitisation and gamification are personal ways of working through that feeling: by breaking a natural process down into rules and observing it closely, I can begin to make peace with it.</p>
