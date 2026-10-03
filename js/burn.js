@@ -55,8 +55,8 @@ PM.burn = (function () {
       // Capture the actual visible colony texture before changing its fields.
       var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
       // гарь темнее агара; в светлой теме (негатив) — светлее до инверсии,
-      // чтобы на экране всё равно выйти темнее чашки
-      ash[i] = invert ? clean[i] + (255 - clean[i]) * biomass * 0.85
+      // чтобы на экране выйти лёгкой тенью чуть темнее чашки
+      ash[i] = invert ? clean[i] + (255 - clean[i]) * biomass * 0.2
                       : clean[i] * (1 - biomass * 0.85);
     }
     drawH = (bottom - top) * 1.35;
