@@ -44,6 +44,7 @@ PM.burn = (function () {
     cleared = new Uint8Array(f.n);
     left = f.W; right = 0; bottom = 0;
     var top = f.H;
+    var invert = document.documentElement.classList.contains('light');
     for (var y = 0; y < f.H; y++) for (var x = 0; x < f.W; x++) {
       var i = y * f.W + x;
       if (!f.mask[i]) continue;
@@ -53,7 +54,10 @@ PM.burn = (function () {
         + (PM.rng.fbm(x / 7, y / 9, seed + 1823, 2) - 0.5) * 14;
       // Capture the actual visible colony texture before changing its fields.
       var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
-      ash[i] = clean[i] * (1 - biomass * 0.85);
+      // гарь темнее агара; в светлой теме (негатив) — светлее до инверсии,
+      // чтобы на экране всё равно выйти темнее чашки
+      ash[i] = invert ? clean[i] + (255 - clean[i]) * biomass * 0.85
+                      : clean[i] * (1 - biomass * 0.85);
     }
     drawH = (bottom - top) * 1.35;
     drawW = drawH * SW / SH;
