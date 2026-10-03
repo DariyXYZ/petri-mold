@@ -56,8 +56,17 @@ PM.burn = (function () {
       var biomass = clamp(Math.abs(snapshot[i] - clean[i]) / 95);
       // гарь темнее агара; в светлой теме (негатив) — светлее до инверсии,
       // чтобы на экране выйти лёгкой тенью чуть темнее чашки
-      ash[i] = invert ? clean[i] + (255 - clean[i]) * biomass * 0.2
-                      : clean[i] * (1 - biomass * 0.85);
+      if (invert) {
+        // лёгкая тень сама по себе выходит гладкой заливкой — её ломают
+        // пятна копоти (fbm), зерно по пикселю и редкие тёмные крупинки
+        var mottle = PM.rng.fbm(x / 6, y / 6, seed + 2711, 3);
+        var grain = PM.rng.value2d(x, y, seed + 3301);
+        var soot = biomass * 0.2 * (0.2 + 1.6 * mottle) * (0.55 + 0.9 * grain)
+          + (grain > 0.94 ? biomass * 0.22 : 0);
+        ash[i] = clean[i] + (255 - clean[i]) * Math.min(1, soot);
+      } else {
+        ash[i] = clean[i] * (1 - biomass * 0.85);
+      }
     }
     drawH = (bottom - top) * 1.35;
     drawW = drawH * SW / SH;
