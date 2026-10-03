@@ -390,6 +390,14 @@ PM.app = (function () {
     var bx = big.getContext('2d');
     bx.imageSmoothingEnabled = false;
     bx.drawImage(off, 0, 0, W, H, 0, 0, W * k, H * k);
+    // в светлой теме сохраняем то, что видно на экране, — негатив
+    if (document.documentElement.classList.contains('light')) {
+      var id = bx.getImageData(0, 0, big.width, big.height), d = id.data;
+      for (var i = 0; i < d.length; i += 4) {
+        d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2];
+      }
+      bx.putImageData(id, 0, 0);
+    }
 
     var link = document.createElement('a');
     link.download = 'petri-' + (W * k) + 'x' + (H * k) + '-' + seed + '.png';

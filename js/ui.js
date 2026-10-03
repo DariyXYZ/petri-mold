@@ -183,6 +183,15 @@ PM.ui = (function () {
     });
     syncSound();
 
+    // тема: старт всегда тёмный, светлая — инверсия всей страницы
+    var thm = el('theme-toggle');
+    thm.addEventListener('click', function () {
+      var light = document.documentElement.classList.toggle('light');
+      thm.setAttribute('aria-pressed', String(light));
+      thm.title = light ? 'Dark theme' : 'Light theme';
+      PM.sound.ui('press');
+    });
+
     el('start').addEventListener('click', function () {
       PM.sound.ui('start');
       api.start();
