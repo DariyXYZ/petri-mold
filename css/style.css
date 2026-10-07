@@ -248,13 +248,15 @@ html.light button:disabled { color: #5f5f5f; }
 .tile-random canvas { width: 88px; height: 88px; align-self: center; }
 button:focus { outline: none; }        /* выделение — уголки, не обводка фокуса */
 
-/* Невысокое окно на десктопе (ноутбук, запись 1280×720): квадратные плитки
-   не влезали по высоте, последний ряд штаммов уходил под прокрутку.
-   Плитки по высоте содержимого, «случайно» ниже, ряды плотнее. */
+/* Невысокое окно на десктопе (ноутбук, запись 1280×720): палитра из
+   квадратов полного размера не влезала по высоте, последний ряд штаммов
+   уходил под прокрутку. Плитки остаются квадратными, но мельче. */
 @media (min-width: 761px) and (pointer: fine) and (max-height: 860px) {
-  .tile, .tile-random { aspect-ratio: auto; }
+  #brushes { grid-template-columns: repeat(2, 70px); justify-content: center; gap: 4px 8px; }
+  .tile canvas { width: 40px; }
   .tile-random canvas { width: 64px; height: 64px; }
-  #brushes { gap: 4px 6px; }
+  .tile .cap { letter-spacing: 0.02em; }
+}
 }
 
 h2 {
