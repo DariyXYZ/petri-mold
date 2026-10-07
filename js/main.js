@@ -23,6 +23,7 @@ PM.app = (function () {
   var lum, bg, img, off, offCtx, canvas, ctx, dw, dh, raf = null;
   var lastCells = {};        // сколько клеток было у колонии на прошлом кадре
   var germinated = {};       // колонии, чей всход уже озвучен
+  var germCount = 0;         // сколько всходов уже прозвучало в этой чашке
   // Клетка становится видимой не сразу: кромка проступает за edgeFade тиков
   // (у базовой колонии — 190, три секунды). Звук, снятый с прироста клеток,
   // опережал картинку ровно на это время — «звук раньше роста». Поэтому
@@ -84,6 +85,7 @@ PM.app = (function () {
     nextId = 1;
     lastCells = {};
     germinated = {};
+    germCount = 0;
     hist = {};
     queue = [];
     lastCount = 0;
@@ -215,7 +217,9 @@ PM.app = (function () {
       // проступят на экране, а не когда они заняты в поле.
       if (!germinated[c.id]) {
         germinated[c.id] = 1;
-        later('germinate', c.archetype, (c.x / W - 0.5) * 1.7, null, lag(c.archetype));
+        // номер всхода: первый в чашке звучит акцентом, дальше тише
+        later('germinate', c.archetype, (c.x / W - 0.5) * 1.7, germCount++,
+              Math.round(lag(c.archetype) * 0.6));   // первые клетки заметны раньше середины проявления
       }
 
       var a = byArch[c.archetype];
@@ -298,33 +302,7 @@ PM.app = (function () {
     offCtx.putImageData(img, 0, 0);
     PM.render.present(ctx, off, W, H, dw, dh);
     PM.burn.present(canvas);
-    if (state === 'inoculate') labelSpores();
-  }
-
-  // Номера посевов рисуются поверх готового кадра обычным шрифтом: в пиксельном
-  // буфере цифры получались грубыми, а подпись здесь служебная, не часть картинки.
-  function labelSpores() {
-    if (!points.length) return;
-    var k = dw / W;
-    // радиус кольца в экранных точках — цифра ставится сразу за ним,
-    // иначе налезает на прицел
-    var ring = 3.4 * (W / 192) * k;
-    // Кегль считается от того, как буфер ляжет на экран: на узком окне буфер
-    // растягивается css-ом почти вдвое, и 11 px превращались в 22; на широком
-    // (буфер 2x) оставались 11. Целимся в 15 экранных px в обоих случаях.
-    var onScreen = (parseFloat(canvas.style.width) || dw) / dw;
-    var fs = Math.max(8, Math.round(15 / onScreen));
-    ctx.save();
-    ctx.font = fs + 'px "Pixelated MS Sans Serif", "MS Sans Serif", Arial, sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#f2f2f2';
-    for (var p = 0; p < points.length; p++) {
-      ctx.fillText(String(p + 1),
-                   Math.round(points[p].x * k + ring + 5),
-                   Math.round(points[p].y * k));
-    }
-    ctx.restore();
+    PM.glitch.apply(ctx, dw, dh, dw / W);
   }
 
   // ---------- управление ----------
@@ -403,6 +381,17 @@ PM.app = (function () {
     link.download = 'petri-' + (W * k) + 'x' + (H * k) + '-' + seed + '.png';
     link.href = big.toDataURL('image/png');
     link.click();
+    flash();
+  }
+
+  // Вспышка на сохранении: тема на миг переворачивается и возвращается,
+  // как щелчок затвора. Кнопка темы при этом не трогается.
+  function flash() {
+    var root = document.documentElement;
+    setTimeout(function () {
+      root.classList.toggle('light');
+      setTimeout(function () { root.classList.toggle('light'); }, 200);
+    }, 200);
   }
 
   function redrawBackground() { bakeBackground(); draw(); }
@@ -438,6 +427,8 @@ PM.app = (function () {
     if (document.fonts && document.fonts.load) {
       document.fonts.load('11px "Pixelated MS Sans Serif"').then(function () { draw(); });
     }
+
+    PM.glitch.attach(canvas, draw, W);
 
     canvas.addEventListener('click', function (ev) {
       var b = canvasToBuffer(ev);
@@ -484,7 +475,8 @@ PM.app = (function () {
         PM.loader.progress(ti / tiles.length);
         setTimeout(bakeNext, 0);
       } else {
-        PM.loader.done(function () { draw(); });
+        // через секунду после того, как открылась чашка, — короткий сбой
+        PM.loader.done(function () { draw(); setTimeout(function () { PM.glitch.run(); }, 1000); });
       }
     })();
   }
@@ -503,7 +495,8 @@ PM.app = (function () {
              cells: colonies.map(function (c) { return c.archetype + ':' + c.cells; }) };
   }
 
-  return { init: init, step: step, redraw: draw };
+  return { init: init, step: step, redraw: draw, glitch: function (ms) { PM.glitch.run(ms); },
+           debug: function () { return { fields: fields, colonies: colonies, state: state }; } };
 })();
 
 window.addEventListener('DOMContentLoaded', PM.app.init);

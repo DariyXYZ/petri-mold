@@ -40,6 +40,8 @@ PM.sound = (function () {
   // полоса, высокий Q — стекло); чем шире и плотнее масса, тем ниже и
   // полнее (широкая полоса, много воздуха). Атаки короткие: звук должен
   // идти за движением роста, а не плыть отдельно от него.
+  // Громкости выровнены по A-взвешенному замеру (по 30 с роста каждого вида
+  // отдельно, 2026-10-07): разброс медиан между видами — в пределах ~3 дБ.
   var VOICE = {
     // базовая плесень: широкая тёплая масса, деревянный резонанс
     colony:   { freq: P.D3, q: 5,  grains: 4, spread: 260, dur: 1.6, attack: 0.12,
@@ -49,7 +51,7 @@ PM.sound = (function () {
                 air: 0.95, gain: 0.06, every: 520 },
     // мишень: низкий гулкий обертон, как удар по стеклу через воду
     target:   { freq: P.A2, q: 4,  grains: 3, spread: 420, dur: 3.2, attack: 0.3,
-                air: 0.7,  gain: 0.21, every: 900 },
+                air: 0.7,  gain: 0.15, every: 900 },
     // лучи: тонкие иглы — звон, облако зёрен вверх по ступеням
     starburst:{ freq: P.A4, q: 18, grains: 7, spread: 520, dur: 1.2, attack: 0.04,
                 air: 0.75, gain: 0.1, every: 700, arp: 1 },
@@ -64,26 +66,27 @@ PM.sound = (function () {
                 air: 1.0,  gain: 0.085, every: 420 },
     // кольцо-призрак: длинный низкий выдох
     crater:   { freq: P.A1, q: 4,  grains: 2, spread: 700, dur: 4.5, attack: 0.8,
-                air: 0.6,  gain: 0.21, every: 1800 },
+                air: 0.6,  gain: 0.13, every: 1800 },
     // трещины: плотный тёмный мат — низкий сухой треск
     crackle:  { freq: P.D3, q: 6,  grains: 4, spread: 200, dur: 0.6, attack: 0.03,
-                air: 0.95, gain: 0.07, every: 400 },
+                air: 0.95, gain: 0.06, every: 400 },
     // крап: мягкий широкий шелест с опорой на ноту
     speckle:  { freq: P.C4, q: 7,  grains: 3, spread: 340, dur: 1.1, attack: 0.1,
                 air: 0.9,  gain: 0.05, every: 520 },
     // гифы: тончайшее кружево — высокий тонкий звон
     hyphal:   { freq: P.E5, q: 24, grains: 3, spread: 420, dur: 1.5, attack: 0.15,
-                air: 0.7,  gain: 0.036, every: 560 },
+                air: 0.7,  gain: 0.052, every: 560 },
     // плёнка: широкое низкое дыхание, редкие мягкие зёрна. Раньше была
     // дроном, который перезапускался каждым кадром роста и гудел на 55 Гц
     // всё время, пока плёнка ползла по чашке.
     film:     { freq: P.A2, q: 3,  grains: 2, spread: 600, dur: 3.0, attack: 0.6,
-                air: 1.0,  gain: 0.06, every: 1600 }
+                air: 1.0,  gain: 0.12, every: 1600 }
   };
 
   var ctx = null, master = null, duck = null, revb = null, dly = null, dlyIn = null, outNode = null;
   var noiseBuf = null, drones = {}, last = {};
   var live = 0, MAX_VOICES = 20;
+  var germNext = 0;                      // когда может прозвучать следующий всход (мс)
   var activeGrains = new Set();
   var enabled = true, started = false;    // включён сразу, ждём только жеста
   var volume = 1.0, density = 1.0;
@@ -804,25 +807,36 @@ PM.sound = (function () {
     if (kind === 'germinate') {
       // Спора проросла: вид заявляет о себе своим голосом — облако зёрен
       // плотнее и громче обычного, атака короткая, чтобы совпасть с началом
-      // движения. Не чаще раза в полсекунды на вид.
+      // движения. Самый первый всход в чашке — акцент: с него начинается
+      // звук культуры. Следующие тише, а когда их много — ещё тише.
       var gv = VOICE[arch];
       if (!gv) return;
       if (gv.drone) { speciesDrone(arch, gv, panX); return; }
-      // каждая спора, но не залпом; у мелких видов (россыпь, икра) колоний
-      // сотни — их всходы прореживаются сильнее
+      var order = extra | 0;
+      // у мелких видов (россыпь, икра) колоний сотни — их всходы прореживаются
       var tiny = (PM.growth.ARCH[arch] || {}).size < 0.3;
-      if (!due('germ', 90) || !due('germ:' + arch, tiny ? 480 : 90)) return;
+      if (tiny && order > 0 && !due('germ:' + arch, 480)) return;
+      // Каждое видимое начало роста должно быть слышно. Всходы, совпавшие
+      // по времени, не выбрасываются, а встают друг за другом с шагом
+      // 110 мс; слишком длинный хвост очереди всё-таки отсекается.
+      var nowMs = performance.now();
+      var wait = Math.max(0, germNext - nowMs);
+      if (wait > 700) return;
+      germNext = Math.max(nowMs, germNext) + 110;
+      var accent = order === 0 ? 1.9 : (order < 4 ? 1.0 : 0.78);
       // Характер по морфологии вида: крупные плотные — низко и громко,
       // тонкие и мелкие — выше и тише. Атака короткая: это метка момента.
       var A = PM.growth.ARCH[arch] || {};
       var size = Math.min(1, A.size || 0.5), dens = (A.dens || 150) / 255;
       var heft = 0.5 + 0.5 * size * dens;              // 0.5 — крошка, 1 — масса
-      cloud({ freq: gv.freq * (size < 0.3 ? 2 : 1), q: gv.q,
-              grains: Math.min(4, (gv.grains || 3) + 1),
-              spread: Math.min(gv.spread, 200), dur: gv.dur * (0.7 + 0.6 * heft),
+      var gvoice = { freq: gv.freq * (size < 0.3 ? 2 : 1), q: gv.q,
+              grains: Math.min(order === 0 ? 6 : 4, (gv.grains || 3) + (order === 0 ? 3 : 1)),
+              spread: Math.min(gv.spread, 200), dur: gv.dur * (0.7 + 0.6 * heft) * (order === 0 ? 1.4 : 1),
               attack: 0.01 + 0.03 * heft, air: gv.air * 0.5, rise: gv.rise,
-              gain: gv.gain * (1.6 + 2.0 * heft),
-              send: 0.35, echo: 0.15, free: 1 }, panX, 1);
+              gain: gv.gain * (1.6 + 2.0 * heft) * accent,
+              send: order === 0 ? 0.5 : 0.35, echo: 0.15, free: 1 };
+      if (wait > 0) setTimeout(function () { if (enabled && ctx) cloud(gvoice, panX, 1); }, wait);
+      else cloud(gvoice, panX, 1);
     } else if (kind === 'spawn') {
       if (!due('spawn', 250 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),

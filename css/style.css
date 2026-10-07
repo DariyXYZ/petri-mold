@@ -182,6 +182,46 @@ em { font-style: normal; }
    целиком, вместе с холстом, пламенем и пинцетом. Фильтр на корне не
    ломает fixed-позиционирование (корень и так их контейнер). */
 html.light { filter: invert(1); }
+
+/* сбой (js/glitch.js): слои-копии страницы поверх, каждый показывает свой
+   обрезанный и сдвинутый кусок экрана; полосы — выпадение и инверсия строк */
+.glitch-layer {
+  position: fixed; inset: 0;
+  z-index: 40;
+  display: none;
+  background: #000;
+  pointer-events: none;
+  overflow: hidden;
+  will-change: transform, clip-path;
+}
+.glitch-mark {
+  position: fixed; left: 0; right: 0;
+  z-index: 41;
+  display: none;
+  pointer-events: none;
+}
+.glitch-mark.drop { background: #000; }
+.glitch-mark.invert { background: #d0d0d0; mix-blend-mode: difference; }
+/* весь макет вздрагивает ступеньками в такт огибающей: средний, сильный,
+   длинная пауза, слабый отголосок */
+body.glitching > #wrap { animation: glitch-jitter 1.3s steps(1) both; }
+@keyframes glitch-jitter {
+  0%   { transform: translate(0, 0); }
+  4%   { transform: translate(2px, 0); }
+  10%  { transform: translate(-2px, 1px); }
+  17%  { transform: translate(4px, 0); }
+  22%  { transform: translate(-3px, 1px); }
+  28%  { transform: translate(2px, -1px); }
+  33%  { transform: translate(-2px, 0); }
+  36%  { transform: translate(0, 0); }
+  74%  { transform: translate(2px, 0); }
+  77%  { transform: translate(-1px, 0); }
+  79%  { transform: translate(0, 0); }
+  100% { transform: translate(0, 0); }
+}
+}
+}
+}
 /* Серые подписи на белом теряются: в светлой теме исходные цвета ярче,
    чтобы после инверсии выйти темнее (значения — до инверсии). */
 html.light body, html.light #phase { color: #aaa; }
