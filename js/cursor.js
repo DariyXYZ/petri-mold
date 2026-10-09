@@ -125,7 +125,9 @@ PM.cursor = (function () {
   function release(x, y) {
     setOpen(true, x, y);
     clearTimeout(relaxTimer);
-    relaxTimer = setTimeout(function () { setOpen(false, x, y); }, 260);
+    // смыкаемся там, где курсор сейчас: с координатами клика пинцет
+    // отпрыгивал назад к споре, если мышь успела уйти за эти 260 мс
+    relaxTimer = setTimeout(function () { setOpen(false); }, 260);
   }
 
   function show(on) {
