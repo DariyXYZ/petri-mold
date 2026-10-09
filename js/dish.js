@@ -32,9 +32,23 @@ PM.dish = (function () {
     glareCount: 3            // постоянные блики стекла
   };
 
+  // Фото чашки (assets/dish-photo.js) вместо процедурного фона. Агар на
+  // фото кончается раньше — у внутренней стенки, отсюда и маска роста.
+  var photo = null;
+  if (PM.dishPhoto) {
+    var bin = atob(PM.dishPhoto.data);
+    photo = new Uint8Array(bin.length);
+    for (var b = 0; b < bin.length; b++) photo[b] = bin.charCodeAt(b);
+    GEO.rAgar = PM.dishPhoto.rAgar;
+  }
+
   // Заполняет Float32Array яркостями 0..255
   function paint(lum, W, H, seed, geo) {
     var g = geo || GEO;
+    if (photo && W === PM.dishPhoto.w && H === PM.dishPhoto.h) {
+      for (var p = 0; p < photo.length; p++) lum[p] = photo[p];
+      return;
+    }
     var cx = g.cx * W, cy = g.cy * H;
     var R = g.rOuter * W;
     var Ragar = g.rAgar * R;
