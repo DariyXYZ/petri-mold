@@ -86,7 +86,6 @@ PM.sound = (function () {
   var ctx = null, master = null, duck = null, revb = null, dly = null, dlyIn = null, outNode = null;
   var noiseBuf = null, drones = {}, last = {};
   var live = 0, MAX_VOICES = 20;
-  var germNext = 0;                      // когда может прозвучать следующий всход (мс)
   var activeGrains = new Set();
   var enabled = true, started = false;    // включён сразу, ждём только жеста
   var volume = 1.0, density = 1.0;
@@ -358,7 +357,9 @@ PM.sound = (function () {
   // одиночный пик в событие, размазанное по залу.
   function cloud(v, x, mul) {
     var steps = [0, 3, 7, 10, 12];       // ступени той же пентатоники
-    var count = Math.min(v.grains || 3, MAX_VOICES - live);
+    // свободные (всход) не занимают пул и не режутся им: иначе при густом
+    // росте всход молчал, а пул держали зёрна роста
+    var count = v.free ? (v.grains || 3) : Math.min(v.grains || 3, MAX_VOICES - live);
     if (count <= 0) return;
     for (var i = 0; i < count; i++) {
       var semi = v.arp ? steps[i % steps.length]
@@ -611,17 +612,28 @@ PM.sound = (function () {
     };
   }
 
+  // delta — сколько заметных пикселей вида прибавилось за кадр (main.voice),
+  // зовётся каждый кадр, в том числе с нулём. Мгновенный прирост рваный:
+  // фронт то стоит кадр-другой, то прыгает. Поэтому голос ведёт сглаженная
+  // скорость — быстро вверх (~3 кадра), медленно вниз (~0,4 с): звук входит
+  // вместе с ростом и не дёргается на каждой паузе фронта.
+  var rates = {};
   function growth(c, delta, panX) {
-    if (!enabled || !ctx || ctx.state !== 'running' || delta <= 0) return;
+    if (!enabled || !ctx || ctx.state !== 'running') return;
     var v = VOICE[c.archetype];
     if (!v) return;
+    var r = rates[c.archetype] || 0;
+    r += (delta - r) * (delta > r ? 0.3 : 0.04);
+    rates[c.archetype] = r;
+    if (r < 0.05) return;
     if (v.drone) { speciesDrone(c.archetype, v, panX); return; }
 
-    breathe(c.archetype, v, delta, panX);
+    breathe(c.archetype, v, r, panX);
     if (live >= MAX_VOICES - 2) return;
-    // зёрна — акценты на заметных рывках роста: чем сильнее рывок, тем чаще
+    // зёрна — акценты на заметных рывках роста: чем сильнее рост, тем чаще
     // и громче; ровное медленное расползание слышно только как дыхание
-    if (delta < 3) return;
+    if (r < 3) return;
+    delta = r;
     var every = v.every / (density * Math.min(2.4, 1 + delta * 0.05));
     if (!due(c.archetype, Math.max(380, every * 1.3))) return;
     if (!due('growth-budget', 220)) return;
@@ -657,10 +669,12 @@ PM.sound = (function () {
       b = breaths[name] = { gain: g, pan: tail.pan, last: 0, level: 0, peak: v.gain * 0.12 };
     }
     // уровень: насыщается по приросту, подтягивается плавно
-    var target = b.peak * Math.min(1, delta / 14);
-    b.level = target;
+    var target = b.peak * Math.min(1, delta / 10);
     b.last = t;
-    b.gain.gain.setTargetAtTime(target, t, 0.35);
+    if (Math.abs(target - b.level) > b.peak * 0.04) {
+      b.level = target;
+      b.gain.gain.setTargetAtTime(target, t, 0.15);
+    }
     b.pan.pan.setTargetAtTime(Math.max(-0.9, Math.min(0.9, panX)), t, 0.8);
   }
 
@@ -816,13 +830,11 @@ PM.sound = (function () {
       // у мелких видов (россыпь, икра) колоний сотни — их всходы прореживаются
       var tiny = (PM.growth.ARCH[arch] || {}).size < 0.3;
       if (tiny && order > 0 && !due('germ:' + arch, 480)) return;
-      // Каждое видимое начало роста должно быть слышно. Всходы, совпавшие
-      // по времени, не выбрасываются, а встают друг за другом с шагом
-      // 110 мс; слишком длинный хвост очереди всё-таки отсекается.
-      var nowMs = performance.now();
-      var wait = Math.max(0, germNext - nowMs);
-      if (wait > 700) return;
-      germNext = Math.max(nowMs, germNext) + 110;
+      // Всход звучит в тот же кадр, когда колония стала заметна. Раньше
+      // совпавшие всходы вставали в очередь с шагом 110 мс и отставали от
+      // картинки до 0,7 с. Теперь второй всход в пределах 90 мс просто
+      // сливается с первым — на слух это одно событие.
+      if (order > 0 && !due('germ', 90)) return;
       var accent = order === 0 ? 1.9 : (order < 4 ? 1.0 : 0.78);
       // Характер по морфологии вида: крупные плотные — низко и громко,
       // тонкие и мелкие — выше и тише. Атака короткая: это метка момента.
@@ -835,8 +847,7 @@ PM.sound = (function () {
               attack: 0.01 + 0.03 * heft, air: gv.air * 0.5, rise: gv.rise,
               gain: gv.gain * (1.6 + 2.0 * heft) * accent,
               send: order === 0 ? 0.5 : 0.35, echo: 0.15, free: 1 };
-      if (wait > 0) setTimeout(function () { if (enabled && ctx) cloud(gvoice, panX, 1); }, wait);
-      else cloud(gvoice, panX, 1);
+      cloud(gvoice, panX, 1);
     } else if (kind === 'spawn') {
       if (!due('spawn', 250 / density)) return;
       drip([P.A4, P.C5, P.E5][(Math.random() * 3) | 0] * (Math.random() < 0.3 ? 2 : 1),
@@ -929,7 +940,7 @@ PM.sound = (function () {
   }
 
   function reset() {
-    fadeDrones(); last = {};
+    fadeDrones(); last = {}; rates = {};
     if (!ctx) return;
     var t = ctx.currentTime;
     for (var k in breaths) {
