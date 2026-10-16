@@ -55,15 +55,24 @@ h2.px { letter-spacing: 0; }
 .stack { display: grid; gap: clamp(16px, 2vw, 28px); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 1.6vw, 24px); }
 
-/* ссылки-кнопки */
-.links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
-.btn { display: inline-flex; flex-direction: column; gap: 2px; padding: 14px 18px; border: 1px solid var(--line);
-  text-decoration: none; min-width: 240px; transition: border-color .15s, background .15s; }
-.btn:hover { border-color: var(--ink); }
-.btn small { font-size: 12px; color: var(--mute); letter-spacing: .02em; }
-.btn span { font-size: 15px; }
-.btn.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
-.btn.dark small { color: #9a9a9a; }
+/* ссылки-кнопки как в игре: пиксельная надпись, четыре уголка, без подложки */
+.links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 28px; margin-left: -14px; }
+.btn { --c: 10px; --k: #111;
+  display: inline-block; padding: 12px 14px; text-decoration: none; color: var(--k);
+  font-family: "Pixelated MS Sans Serif", monospace; font-size: 22px; line-height: 1; letter-spacing: .06em;
+  text-transform: uppercase; -webkit-font-smoothing: none;
+  background:
+    linear-gradient(var(--k), var(--k)) top left / var(--c) 1px no-repeat,
+    linear-gradient(var(--k), var(--k)) top left / 1px var(--c) no-repeat,
+    linear-gradient(var(--k), var(--k)) top right / var(--c) 1px no-repeat,
+    linear-gradient(var(--k), var(--k)) top right / 1px var(--c) no-repeat,
+    linear-gradient(var(--k), var(--k)) bottom left / var(--c) 1px no-repeat,
+    linear-gradient(var(--k), var(--k)) bottom left / 1px var(--c) no-repeat,
+    linear-gradient(var(--k), var(--k)) bottom right / var(--c) 1px no-repeat,
+    linear-gradient(var(--k), var(--k)) bottom right / 1px var(--c) no-repeat;
+  transition: background-size .15s steps(3); }
+.btn:hover { --c: 16px; }
+.btn:active { --c: 6px; }
 
 /* таблица параметров */
 .spec { list-style: none; margin-top: 32px; font-size: 15px; max-width: 34em; }
@@ -104,10 +113,10 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 
 @media (max-width: 860px) {
   body { font-size: 16px; }
+  .btn { font-size: 18px; }
   .split, .about { grid-template-columns: 1fr; }
   .split .sticky { position: static; }
   .nav ul li.opt { display: none; }
-  .btn { min-width: 0; flex: 1 1 100%; }
   .spec li { grid-template-columns: 7.5em 1fr; }
 }
 @media (max-width: 520px) {
@@ -148,8 +157,8 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       <p>The result is a digital laboratory. Spores are placed in a Petri dish, and the colonies grow, compete for nutrients and take over the whole space. Each experiment lasts a few minutes, ends with the dish being burned, and begins again.</p>
     </div>
     <div class="links">
-      <a class="btn dark" href="https://dariyxyz.github.io/petri-mold/"><small>Digital laboratory — interactive version for experiments</small><span>Open the laboratory →</span></a>
-      <a class="btn" href="https://www.youtube.com/watch?v=2gKaos4EKko"><small>Video</small><span>Watch on YouTube →</span></a>
+      <a class="btn" href="https://dariyxyz.github.io/petri-mold/">Interactive version →</a>
+      <a class="btn" href="https://www.youtube.com/watch?v=2gKaos4EKko">Video →</a>
     </div>
   </div>
   <figure><img src="img/w/mold_install.jpg" alt="Mold.log running on a portable screen on a white table" loading="lazy"><figcaption class="cap">Mold.log on screen, interactive version. In the exhibition it runs autonomously, with no panels or buttons.</figcaption></figure>
@@ -195,7 +204,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       <li><span>Price</span><span>On request</span></li>
     </ul>
     <div class="links">
-      <a class="btn dark" href="https://dariyxyz.github.io/petri-mold/auto/"><small>Autonomous version for installation — runs on its own, with no interface</small><span>Open the installation →</span></a>
+      <a class="btn" href="https://dariyxyz.github.io/petri-mold/auto/">Autonomous version →</a>
     </div>
   </div>
   <figure><img src="img/w/mold_wall.jpg" alt="Mold.log installed on a wall screen with headphones and a label" loading="lazy"><figcaption class="cap">Mold.log, installation view</figcaption></figure>
