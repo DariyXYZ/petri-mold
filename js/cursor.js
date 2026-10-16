@@ -141,7 +141,8 @@ PM.cursor = (function () {
   // расставляются споры. На сенсорном экране курсора нет вовсе.
   // scaleFn — сколько экранных точек в пикселе буфера чашки.
   function attach(canvas, isActive, scaleFn) {
-    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+    // в автономном режиме пинцетом водит автопилот — ему сенсорный экран не помеха
+    if (!window.PM_AUTO && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
     ensure();
     host = canvas;
     getScale = scaleFn || null;
@@ -162,5 +163,11 @@ PM.cursor = (function () {
     window.addEventListener('resize', function () { if (shown) redraw(); });
   }
 
-  return { attach: attach, release: release, show: show };
+  // Автопилот (js/autopilot.js): поставить пинцет в точку экрана без мыши.
+  function drive(x, y) {
+    if (!tool) return;
+    place(x, y);
+  }
+
+  return { attach: attach, release: release, show: show, drive: drive };
 })();

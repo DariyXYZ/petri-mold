@@ -13,6 +13,7 @@ PM.app = (function () {
   var LOADER_SEEDS = [667451123, 1289195108, 2148973688];
   var seed = 12345;
   var speed = 3;
+  var AUTO = !!window.PM_AUTO;   // страница auto/: галерейный режим без посетителя
 
   var state = 'inoculate';   // inoculate | growing | mature | paused | burning | done
   var resumeTo = 'growing';  // куда вернуться из паузы
@@ -48,6 +49,7 @@ PM.app = (function () {
   }
 
   function fitDisplay() {
+    if (AUTO) { fitAuto(); return; }
     var narrow = window.innerWidth <= 760;   // та же граница, что у @media в css
     // справа стоит палитра штаммов, на телефоне она уезжает вниз
     var availW = window.innerWidth - (narrow ? 14 : 262);
@@ -69,6 +71,37 @@ PM.app = (function () {
     document.documentElement.style.setProperty('--k', String(css));
     // толщина линий интерфейса — ровно один пиксель экрана
     document.documentElement.style.setProperty('--dpr', String(window.devicePixelRatio || 1));
+  }
+
+  // Автономный режим: панелей нет, чашка занимает экран по высоте. Буфер
+  // целого кратного с запасом, остаток — дробным CSS, как на телефоне.
+  function fitAuto() {
+    var fit = Math.min(window.innerWidth / W, window.innerHeight / H) * 0.92;
+    var scale = Math.max(1, Math.ceil(fit));
+    dw = W * scale; dh = H * scale;
+    canvas.width = dw; canvas.height = dh;
+    canvas.style.width = Math.floor(W * fit) + 'px';
+    canvas.style.height = Math.floor(H * fit) + 'px';
+    document.documentElement.style.setProperty('--k', String(fit));
+    document.documentElement.style.setProperty('--dpr', String(window.devicePixelRatio || 1));
+  }
+
+  // Подписи по углам экрана — те же, что на отпечатке: сид текущей чашки,
+  // «1 / 1», название и автор. Сид меняется с каждой новой чашкой.
+  var caps = null;
+  function captions() {
+    if (!caps) {
+      caps = {};
+      [['tl', ''], ['tr', '1 / 1'], ['bl', 'Mold.log'], ['br', 'Dariy Nazarov / 2026']]
+        .forEach(function (c) {
+          var d = document.createElement('div');
+          d.className = 'auto-cap ' + c[0];
+          d.textContent = c[1];
+          document.body.appendChild(d);
+          caps[c[0]] = d;
+        });
+    }
+    caps.tl.textContent = 'Seed . ' + seed;
   }
 
   // Фон рисуем один раз и держим копию — агар и обод не меняются.
@@ -96,6 +129,7 @@ PM.app = (function () {
     PM.burn.reset();
     if (!keepPoints) points = [];
     state = 'inoculate';
+    if (AUTO) captions();
     bakeBackground();
     PM.ui.sync();
     draw();
@@ -306,6 +340,8 @@ PM.app = (function () {
     PM.sound.setScene(0, 1.5);
     PM.sound.event('fire');
     PM.burn.start(fields, seed, function () {
+      // в галерее каждая чашка своя: после огня новый сид
+      if (AUTO) seed = (Math.random() * 1e9) | 0;
       newCulture(false);
       PM.sound.event('rebirth');
     }, beforeBurn, bg);
@@ -400,10 +436,11 @@ PM.app = (function () {
 
     PM.glitch.attach(canvas, draw, W);
 
-    canvas.addEventListener('click', function (ev) {
+    if (!AUTO) canvas.addEventListener('click', function (ev) {
       var b = canvasToBuffer(ev);
       addSpore(b.x, b.y);
     });
+    else seed = (Math.random() * 1e9) | 0;
 
     window.addEventListener('resize', function () { fitDisplay(); draw(); });
 
@@ -446,9 +483,50 @@ PM.app = (function () {
         setTimeout(bakeNext, 0);
       } else {
         // через секунду после того, как открылась чашка, — короткий сбой
-        PM.loader.done(function () { draw(); setTimeout(function () { PM.glitch.run(); }, 1000); });
+        PM.loader.done(function () {
+          draw();
+          if (AUTO) { startAutopilot(); return; }
+          setTimeout(function () { PM.glitch.run(); }, 1000);
+        });
       }
     })();
+  }
+
+  // Галерейный режим: автопилот водит пинцет и жмёт те же «кнопки», что
+  // посетитель. Звук браузер пустит только после жеста или с флагом киоска
+  // --autoplay-policy=no-user-gesture-required.
+  function startAutopilot() {
+    if (PM.sound.isEnabled()) PM.sound.setEnabled(true);
+    PM.autopilot.run({
+      addSpore: addSpore,
+      start: start,
+      burnClean: burnClean,
+      // заставка загрузки поверх пустой чашки: линия прорастает и гаснет
+      intro: function (cb) {
+        PM.loader.start({ seed: nextLoaderSeed() });
+        PM.loader.done(function () { draw(); cb(); });
+      },
+      getState: function () { return state; },
+      // буфер -> экран: куда вести кончики пинцета
+      toScreen: function (bx, by) {
+        var r = canvas.getBoundingClientRect();
+        return { x: r.left + (bx + 0.5) / W * r.width, y: r.top + (by + 0.5) / H * r.height };
+      },
+      randomAgar: function () {
+        // глубже в агар, не у самой стенки: точка, у которой агар во все стороны
+        for (var t = 0; t < 200; t++) {
+          var x = 20 + Math.random() * (W - 40), y = 20 + Math.random() * (H - 40);
+          var m = fields.mask, R = 14, ok = true;
+          for (var a = 0; a < 8 && ok; a++) {
+            var ex = Math.round(x + Math.cos(a * Math.PI / 4) * R);
+            var ey = Math.round(y + Math.sin(a * Math.PI / 4) * R);
+            if (!m[ey * W + ex]) ok = false;
+          }
+          if (ok) return { x: Math.round(x), y: Math.round(y) };
+        }
+        return null;
+      }
+    });
   }
 
   // Отладка: прогнать N тиков синхронно, минуя rAF

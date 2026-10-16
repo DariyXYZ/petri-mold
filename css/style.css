@@ -386,3 +386,28 @@ button:disabled { color: #3a3a3a; }
 #loader.out { opacity: 0; pointer-events: none; }
 #loader .strip { position: relative; }
 #loader canvas { image-rendering: pixelated; display: block; position: relative; }
+
+/* ---------- автономный режим (auto/): только чашка и пинцет ---------- */
+html.auto, html.auto * { cursor: none !important; }
+html.auto #sound-toggle, html.auto #theme-toggle, html.auto #save,
+html.auto #status, html.auto #bar, html.auto #strains { display: none !important; }
+html.auto #wrap { padding: 0; gap: 0; }
+/* подписи как на отпечатке: крошечные, по углам экрана */
+.auto-cap { display: none; }
+html.auto .auto-cap {
+  display: block;
+  position: fixed;
+  z-index: 20;
+  color: #6e6e6e;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  --m: max(18px, 3.1vmin);
+}
+html.auto .auto-cap.tl { left: var(--m); top: var(--m); }
+html.auto .auto-cap.tr { right: var(--m); top: var(--m); }
+html.auto .auto-cap.bl { left: var(--m); bottom: var(--m); }
+html.auto .auto-cap.br { right: var(--m); bottom: var(--m); }
+/* пока идёт заставка — подписей нет, как при первом открытии */
+html.auto body:has(#loader) .auto-cap { visibility: hidden; }
