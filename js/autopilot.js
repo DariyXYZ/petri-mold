@@ -75,7 +75,8 @@ PM.autopilot = (function () {
 
   // ---------- цикл ----------
   function cycle() {
-    if (api.getState() !== 'inoculate') { wait(500, cycle); return; }
+    // споры ставим только на открытой чашке: пока висит заставка — ждём
+    if (api.getState() !== 'inoculate' || document.getElementById('loader')) { wait(500, cycle); return; }
     var n = Math.round(rand(SPORES_MIN, SPORES_MAX + 0.49));
     var taken = [];
     pos = offstage();
